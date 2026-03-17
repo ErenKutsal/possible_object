@@ -3,7 +3,7 @@
     "tasks": [
         {
             "type": "shell",
-            "label": "Build possible object (macOS Apple Silicon)",
+            "label": "main",
             "command": "clang++",
             "args": [
                 "-std=c++11",
@@ -33,7 +33,7 @@
         },
         {
             "type": "shell",
-            "label": "Build possible object (macOS Apple Silicon)",
+            "label": "main2",
             "command": "clang++",
             "args": [
                 "-std=c++11",

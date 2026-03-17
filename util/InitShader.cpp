@@ -1,8 +1,4 @@
-#include <GLFW/glfw3.h>
-#include <OpenGL/gl3.h>
-
-#include <cstdio>
-#include <iostream>
+#include "InitShader.h"
 
 // Create a NULL-terminated string by reading the provided file
 static char* readShaderSource(const char* shaderFile)
