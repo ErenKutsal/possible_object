@@ -15,7 +15,7 @@ struct vec3
     vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 
     // Vector addition
-    vec3 operator+(const vec4& v) const
+    vec3 operator+(const vec3& v) const
     {
         return vec3(x + v.x, y + v.y, z + v.z);
     }
