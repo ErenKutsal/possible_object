@@ -1,8 +1,13 @@
 #include "InitShader.h"
 #include "my_math.h"
 
-const int num_vertices = 7;
+const int num_vertices = 36;
 vec3 vertices[num_vertices];
+
+vec3 cube_vertices[8] = {vec3(-0.5, -0.5, 0.5),  vec3(-0.5, 0.5, 0.5),
+                         vec3(0.5, 0.5, 0.5),    vec3(0.5, -0.5, 0.5),
+                         vec3(-0.5, -0.5, -0.5), vec3(-0.5, 0.5, -0.5),
+                         vec3(0.5, 0.5, -0.5),   vec3(0.5, -0.5, -0.5)};
 
 GLuint vao, vbo;
 GLuint program;
@@ -16,22 +21,39 @@ bool isDragging = false;
 double lastMouseX = 0.0;
 double lastMouseY = 0.0;
 
-void create_hexagon()
-{
-    float pi_over_3 = M_PI / 3;
-    float radius = 0.5f;
-    float height_step = 0.1f;
+int Index = 0;
 
-    for (int i = 0; i < num_vertices; i++)
-    {
-        vertices[i] =
-            vec3(radius * cosf(i * pi_over_3), radius * sinf(i * pi_over_3),
-                 i * height_step - 0.25f);  // To make its center at z = 0
-    }
+void quad(int a, int b, int c, int d)
+{
+    vertices[Index] = cube_vertices[a];
+    Index++;
+    vertices[Index] = cube_vertices[b];
+    Index++;
+    vertices[Index] = cube_vertices[c];
+    Index++;
+    vertices[Index] = cube_vertices[a];
+    Index++;
+    vertices[Index] = cube_vertices[c];
+    Index++;
+    vertices[Index] = cube_vertices[d];
+    Index++;
 }
+
+void cube()
+{
+    quad(1, 0, 3, 2);
+    quad(2, 3, 7, 6);
+    quad(3, 0, 4, 7);
+    quad(6, 5, 1, 2);
+    quad(4, 5, 6, 7);
+    quad(5, 4, 0, 1);
+}
+
+void create_hexagon() {}
 
 void init()
 {
+    cube();
     create_hexagon();
 
     glGenVertexArrays(1, &vao);
@@ -51,6 +73,8 @@ void init()
     modelViewProjLoc = glGetUniformLocation(program, "MVP");
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);  // Dark gray background
+
+    glEnable(GL_DEPTH_TEST);
 }
 
 void display(void)
@@ -66,22 +90,41 @@ void display(void)
     vec3 up(0.0f, 1.0f, 0.0f);
     mat4 view = LookAt(eye, at, up);
 
-    mat4 proj = Ortho(-1, 1, -1, 1, -1, 1);
+    mat4 proj = Ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
 
-    mat4 model;
+    mat4 viewProj = proj * view;
 
-    mat4 mvp = proj * view * model;
+    float radius = 0.4f;
+    float barLength = 0.5f;
+    float thickness = 0.05f;
+    float zStep = 0.08f;
 
-    // Send the matrix to the shader
-    glUniformMatrix4fv(modelViewProjLoc, 1, GL_FALSE, &mvp.d[0][0]);
+    int drawOrder[6] = {1, 2, 3, 4, 5, 0};
 
-    // Draw the helix as a line strip
-    glBindVertexArray(vao);
-    glDrawArrays(GL_LINE_STRIP, 0, num_vertices);
+    for (int i = 0; i < 6; i++)
+    {
+        int barIndex = drawOrder[i];
 
-    // Draw points so you can see the vertices clearly
-    glPointSize(5.0f);
-    glDrawArrays(GL_POINTS, 0, num_vertices);
+        if (barIndex == 0)
+        {
+            glClear(GL_DEPTH_BUFFER_BIT);
+        }
+
+        float zHeight = barIndex * zStep - (3.0f * zStep);
+        float angle = barIndex * 60.0f;
+
+        mat4 model = RotateZ(angle) * Translate(0.0f, radius, zHeight) *
+                     Scale(barLength, thickness, thickness);
+
+        mat4 mvp = viewProj * model;
+
+        // Send to the shader
+        glUniformMatrix4fv(modelViewProjLoc, 1, GL_FALSE, &mvp.d[0][0]);
+
+        // Draw the standard cube (Assumes you have bound a VAO with a 36-vertex
+        // generic cube)
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
 
     glFinish();
 }

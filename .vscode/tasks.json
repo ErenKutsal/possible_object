@@ -30,6 +30,36 @@
                 "isDefault": true
             },
             "detail": "Custom build task including Homebrew paths and silencing Apple warnings."
+        },
+        {
+            "type": "shell",
+            "label": "Build possible object (macOS Apple Silicon)",
+            "command": "clang++",
+            "args": [
+                "-std=c++11",
+                "-DGL_SILENCE_DEPRECATION",
+                "${workspaceFolder}/main2.cpp",
+                "${workspaceFolder}/InitShader.cpp",
+                "-I/opt/homebrew/include",
+                "-L/opt/homebrew/lib",
+                "-o",
+                "${workspaceFolder}/imposible",
+                "-framework",
+                "OpenGL",
+                "-lglfw",
+                "-lGLEW"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "detail": "Custom build task including Homebrew paths and silencing Apple warnings."
         }
     ]
 }
