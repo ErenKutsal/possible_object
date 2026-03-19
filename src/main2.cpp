@@ -1,13 +1,13 @@
 #include "InitShader.h"
 #include "my_math.h"
 
-const int num_vertices = 36;
+const int num_vertices = 24;
 vec3 vertices[num_vertices];
-vec3 colors[num_vertices];
 
 GLuint vao, vbo;
 GLuint program;
 GLint modelViewProjLoc;
+GLuint colorLoc;
 
 float camera_radius = 0.5f;
 float camera_theta = M_PI / 2.0f;
@@ -17,78 +17,76 @@ bool isDragging = false;
 double lastMouseX = 0.0;
 double lastMouseY = 0.0;
 
-int Index = 0;
-
-void make_quad(vec3 a, vec3 b, vec3 c, vec3 d, vec3 color)
-{
-  colors[Index] = color;
-  vertices[Index++] = a;
-
-  colors[Index] = color;
-  vertices[Index++] = b;
-
-  colors[Index] = color;
-  vertices[Index++] = c;
-
-  colors[Index] = color;
-  vertices[Index++] = a;
-
-  colors[Index] = color;
-  vertices[Index++] = c;
-
-  colors[Index] = color;
-  vertices[Index++] = d;
-}
-
-void create_generic_mitered_segment(float radius, float thickness)
+void create_solid_segment(float radius, float thickness)
 {
   float half_thick = thickness / 2.0f;
+  float L = radius * tanf(30.0f * (M_PI / 180.0f));
+  float tan30 = tanf(30.0f * (M_PI / 180.0f));
 
-  // The exact math to make a 60-degree corner at the specific radius
-  float half_len = radius * tanf(30.0f * (M_PI / 180.0f));
-  float miter_x_offset = half_thick * tanf(30.0f * (M_PI / 180.0f));
+  float ridge_z = half_thick;
 
-  vec3 v[8];
-  // Front Face
-  v[0] = vec3(-half_len + miter_x_offset, -half_thick, half_thick);  // BL
-  v[1] = vec3(-half_len - miter_x_offset, half_thick, half_thick);   // TL
-  v[2] = vec3(half_len + miter_x_offset, half_thick, half_thick);    // TR
-  v[3] = vec3(half_len - miter_x_offset, -half_thick, half_thick);   // BR
+  float dx = half_thick * tan30;
 
-  // Back Face
-  v[4] = vec3(-half_len + miter_x_offset, -half_thick, -half_thick);
-  v[5] = vec3(-half_len - miter_x_offset, half_thick, -half_thick);
-  v[6] = vec3(half_len + miter_x_offset, half_thick, -half_thick);
-  v[7] = vec3(half_len - miter_x_offset, -half_thick, -half_thick);
+  // 1. Inner Edge (Shorter than L)
+  vec3 v_in_L = vec3(-L + dx, -half_thick, 0.0f);
+  vec3 v_in_R = vec3(L - dx, -half_thick, 0.0f);
 
-  vec3 lightGray(0.9f, 0.9f, 0.9f);  // Top face
-  vec3 medGray(0.5f, 0.5f, 0.5f);    // Outer face
-  vec3 darkGray(0.2f, 0.2f, 0.2f);   // Inner face
+  // 2. Center Ridges (Exactly length L)
+  vec3 v_rid_L = vec3(-L, 0.0f, ridge_z);
+  vec3 v_rid_R = vec3(L, 0.0f, ridge_z);
+  vec3 v_bot_L = vec3(-L, 0.0f, -ridge_z);
+  vec3 v_bot_R = vec3(L, 0.0f, -ridge_z);
 
-  // Stitch the 6 faces cleanly
-  make_quad(v[1], v[0], v[3], v[2], medGray);    // Front
-  make_quad(v[2], v[3], v[7], v[6], medGray);    // Right
-  make_quad(v[6], v[7], v[4], v[5], darkGray);   // Back
-  make_quad(v[5], v[4], v[0], v[1], medGray);    // Left
-  make_quad(v[1], v[2], v[6], v[5], lightGray);  // Top
-  make_quad(v[0], v[4], v[7], v[3], darkGray);   // Bottom
+  // 3. Outer Edge (Longer than L)
+  vec3 v_out_L = vec3(-L - dx, half_thick, 0.0f);
+  vec3 v_out_R = vec3(L + dx, half_thick, 0.0f);
+
+  int idx = 0;
+  // 1. Top Inner Face (Vertices 0 to 5)
+  vertices[idx++] = v_in_L;
+  vertices[idx++] = v_in_R;
+  vertices[idx++] = v_rid_R;
+  vertices[idx++] = v_in_L;
+  vertices[idx++] = v_rid_R;
+  vertices[idx++] = v_rid_L;
+
+  // 2. Top Outer Face (Vertices 6 to 11)
+  vertices[idx++] = v_rid_L;
+  vertices[idx++] = v_rid_R;
+  vertices[idx++] = v_out_R;
+  vertices[idx++] = v_rid_L;
+  vertices[idx++] = v_out_R;
+  vertices[idx++] = v_out_L;
+
+  // 3. Bottom Outer Face (Vertices 12 to 17)
+  vertices[idx++] = v_out_L;
+  vertices[idx++] = v_out_R;
+  vertices[idx++] = v_bot_R;
+  vertices[idx++] = v_out_L;
+  vertices[idx++] = v_bot_R;
+  vertices[idx++] = v_bot_L;
+
+  // 4. Bottom Inner Face (Vertices 18 to 23)
+  vertices[idx++] = v_bot_L;
+  vertices[idx++] = v_bot_R;
+  vertices[idx++] = v_in_R;
+  vertices[idx++] = v_bot_L;
+  vertices[idx++] = v_in_R;
+  vertices[idx++] = v_in_L;
 }
 
 void create_hexagon() {}
 
 void init()
 {
-  // create_hexagon();
-  create_generic_mitered_segment(0.5f, 0.15f);
+  create_solid_segment(0.5f, 0.15f);
 
   glGenVertexArrays(1, &vao);
   glBindVertexArray(vao);
 
   glGenBuffers(1, &vbo);
   glBindBuffer(GL_ARRAY_BUFFER, vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices) + sizeof(colors), NULL, GL_STATIC_DRAW);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-  glBufferSubData(GL_ARRAY_BUFFER, sizeof(vertices), sizeof(colors), colors);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
   program = InitShader("../shaders/vshader.glsl", "../shaders/fshader.glsl");
   glUseProgram(program);
@@ -97,9 +95,7 @@ void init()
   glEnableVertexAttribArray(loc);
   glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
 
-  GLuint colLoc = glGetAttribLocation(program, "vColor");
-  glEnableVertexAttribArray(colLoc);
-  glVertexAttribPointer(colLoc, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)sizeof(vertices));
+  colorLoc = glGetUniformLocation(program, "uFaceColor");
 
   modelViewProjLoc = glGetUniformLocation(program, "MVP");
 
@@ -128,9 +124,14 @@ void display(void)
   mat4 viewProj = proj * view;
 
   float radius = 0.5f;
-  float barLength = 0.5f;
-  float thickness = 0.05f;
   float zStep = 0.15f;
+
+  vec3 light(0.9f, 0.9f, 0.9f);
+  vec3 med(0.6f, 0.6f, 0.6f);
+  vec3 dark(0.3f, 0.3f, 0.3f);
+
+  vec3 outerColors[6] = {light, light, med, dark, dark, med};
+  vec3 innerColors[6] = {dark, med, light, light, med, dark};
 
   int drawOrder[6] = {1, 2, 3, 4, 5, 0};
 
@@ -142,9 +143,7 @@ void display(void)
     if (barIndex == 0)
     {
       // Right before drawing Bar 0, we surgically clear the depth buffer.
-      // This guarantees Bar 0 draws on top of Bar 1 (creating the
-      // loop-over effect), even though Bar 0 is physically further away
-      // from the camera.
+      // This guarantees Bar 0 draws on top of Bar 1.
       glClear(GL_DEPTH_BUFFER_BIT);
     }
 
@@ -153,13 +152,25 @@ void display(void)
     float angle = barIndex * 60.0f;
     float zDepth = barIndex * zStep;
 
-    // Model Matrix: Spin it, push it out to the radius, and shift depth
-    mat4 model = RotateX(30) * RotateZ(angle) * Translate(0.0f, radius, zDepth);
+    mat4 model = RotateZ(angle) * Translate(0.0f, radius, zDepth);
     mat4 mvp = viewProj * model;
 
-    // Send to shader and draw the flawless generic segment
     glUniformMatrix4fv(modelViewProjLoc, 1, GL_FALSE, &mvp.d[0].x);
-    glDrawArrays(GL_TRIANGLES, 0, num_vertices);
+
+    // NEW: Define a shadow color for the bottom volume of the shape
+    vec3 bottomColor(0.15f, 0.15f, 0.15f);
+
+    // Draw the Top Inner Face (Vertices 0-5)
+    glUniform3fv(colorLoc, 1, &innerColors[barIndex].x);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    // Draw the Top Outer Face (Vertices 6-11)
+    glUniform3fv(colorLoc, 1, &outerColors[barIndex].x);
+    glDrawArrays(GL_TRIANGLES, 6, 6);
+
+    // NEW: Draw the Bottom Volume Faces (Vertices 12-23)
+    glUniform3fv(colorLoc, 1, &bottomColor.x);
+    glDrawArrays(GL_TRIANGLES, 12, 12);
   }
 
   glFinish();
@@ -240,7 +251,7 @@ int main()
   double frameRate = 30, currentTime, previousTime = 0.0;
   while (!glfwWindowShouldClose(window))
   {
-    glfwPollEvents();  // Handles queued events
+    glfwPollEvents();
     currentTime = glfwGetTime();
     if (currentTime - previousTime >= 1 / frameRate)
     {

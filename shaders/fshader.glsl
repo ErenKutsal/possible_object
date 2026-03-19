@@ -1,8 +1,9 @@
 #version 150
-in vec4 color;
+
+uniform vec3 uFaceColor;
 out vec4 fColor;
 
 void main() 
 {
-    fColor = color; 
+    fColor = vec4(uFaceColor, 1.0); 
 }
