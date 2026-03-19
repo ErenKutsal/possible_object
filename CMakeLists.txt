@@ -13,15 +13,6 @@ find_package(glfw3 REQUIRED)
 
 include_directories(${CMAKE_SOURCE_DIR}/util ${CMAKE_SOURCE_DIR}/shaders)
 
-add_executable(posible.out src/main.cpp util/InitShader.cpp)
-
-# Link the required libraries to your executable
-target_link_libraries(posible.out PRIVATE 
-    OpenGL::GL 
-    glfw
-    # GLEW::GLEW
-)
-
 add_executable(imposible.out src/main2.cpp util/InitShader.cpp)
 
 target_link_libraries(imposible.out PRIVATE 

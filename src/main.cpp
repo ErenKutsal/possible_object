@@ -1,3 +1,6 @@
+// DEPRECATED FILE. NOTHING INTERESTING HERE. PROCEED TO MAIN2.CPP.
+// NO I WILL NOT DELETE THIS.
+
 #include "InitShader.h"
 #include "my_math.h"
 
@@ -24,9 +27,8 @@ void create_hexagon()
 
     for (int i = 0; i < num_vertices; i++)
     {
-        vertices[i] =
-            vec3(radius * cosf(i * pi_over_3), radius * sinf(i * pi_over_3),
-                 i * height_step - 0.25f);  // To make its center at z = 0
+        vertices[i] = vec3(radius * cosf(i * pi_over_3), radius * sinf(i * pi_over_3),
+                           i * height_step - 0.25f);  // To make its center at z = 0
     }
 }
 
@@ -86,8 +88,7 @@ void display(void)
     glFinish();
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action,
-                  int mods)
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     switch (key)
     {
