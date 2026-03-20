@@ -127,7 +127,7 @@ void display(void)
     mat4 view = LookAt(eye, at, up);
 
     float view_size = scale_factor + 0.5f;
-    mat4 proj = Ortho(-view_size, view_size, -view_size, view_size, -100.0f, 100.0f);
+    mat4 proj = Ortho(-view_size, view_size, -view_size, view_size, -1000.0f, 1000.0f);
 
     mat4 viewProj = proj * view;
 
@@ -245,6 +245,10 @@ int main()
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
+
+#ifndef __APPLE__
+    glewInit();
+#endif
 
     init();
 
