@@ -7,17 +7,17 @@
 const int num_vertices = 7;
 vec3 vertices[num_vertices];
 
-GLuint vao, vbo;
+GLuint segment_vao, segment_vbo;
 GLuint program;
-GLint modelViewProjLoc;
+GLint mvp_loc;
 
 float camera_radius = 0.5f;
 float camera_theta = M_PI / 2.0f;
 float camera_phi = M_PI / 2.0f;
 
-bool isDragging = false;
-double lastMouseX = 0.0;
-double lastMouseY = 0.0;
+bool is_dragging = false;
+double last_mouse_x = 0.0;
+double last_mouse_y = 0.0;
 
 void create_hexagon()
 {
@@ -36,11 +36,11 @@ void init()
 {
     create_hexagon();
 
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    glGenVertexArrays(1, &segment_vao);
+    glBindVertexArray(segment_vao);
 
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glGenBuffers(1, &segment_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, segment_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     program = InitShader("../shaders/vshader.glsl", "../shaders/fshader.glsl");
@@ -50,7 +50,7 @@ void init()
     glEnableVertexAttribArray(loc);
     glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
 
-    modelViewProjLoc = glGetUniformLocation(program, "MVP");
+    mvp_loc = glGetUniformLocation(program, "MVP");
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);  // Dark gray background
 }
@@ -75,10 +75,10 @@ void display(void)
     mat4 mvp = proj * view * model;
 
     // Send the matrix to the shader
-    glUniformMatrix4fv(modelViewProjLoc, 1, GL_FALSE, &mvp.d[0][0]);
+    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp.d[0][0]);
 
     // Draw the helix as a line strip
-    glBindVertexArray(vao);
+    glBindVertexArray(segment_vao);
     glDrawArrays(GL_LINE_STRIP, 0, num_vertices);
 
     // Draw points so you can see the vertices clearly
@@ -104,25 +104,25 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     {
         if (action == GLFW_PRESS)
         {
-            isDragging = true;
-            glfwGetCursorPos(window, &lastMouseX, &lastMouseY);
+            is_dragging = true;
+            glfwGetCursorPos(window, &last_mouse_x, &last_mouse_y);
         }
         else if (action == GLFW_RELEASE)
         {
-            isDragging = false;
+            is_dragging = false;
         }
     }
 }
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
-    if (isDragging)
+    if (is_dragging)
     {
-        double deltaX = xpos - lastMouseX;
-        double deltaY = ypos - lastMouseY;
+        double deltaX = xpos - last_mouse_x;
+        double deltaY = ypos - last_mouse_y;
 
-        lastMouseX = xpos;
-        lastMouseY = ypos;
+        last_mouse_x = xpos;
+        last_mouse_y = ypos;
 
         camera_theta -= deltaX * 0.01f;
         camera_phi += deltaY * 0.01f;

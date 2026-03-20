@@ -3,7 +3,6 @@
 
 // 1. Apple (Mac) Setup
 #ifdef __APPLE__
-#define GL_SILENCE_DEPRECATION
 #include <GLFW/glfw3.h>
 #include <OpenGL/gl3.h>
 
@@ -13,6 +12,7 @@
 #include <GLFW/glfw3.h>
 #endif
 
+#include <cstdlib>
 #include <iostream>
 
 #include "InitShader.h"

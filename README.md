@@ -1,34 +1,49 @@
-Merhaba Yerdal,
+## Hi everyone
 
-Bu proje senın bılgısayarda calısacak mı deneyebilir misin acaba lutfen?
+I wrote some code to build (im)possible n-agon shapes. You can also rotate it with the cursor. There are parts that are open to improve and debug. But I still wanted to share this with you since i think we can use this logic in our project. Main.cpp is deprecated and is no longer of use but I did not want to delete it, (I am scared of merge conflicts) so you can just ignore it. Also the math library is custom. I mean i stole every function from another library but still. Probably using GLM was a better idea but i did not know this back then. The InitShader file is also stolen from the instructors util files.
 
-Gerekenler:
+## Setup & Build Instructions
 
-1 - Gemini'ya gore asagıdaki komut ile glfw kutuphanesini indirmek gerek.
-sudo apt update && sudo apt install -y build-essential cmake libglfw3-dev libgl1-mesa-dev
+### Requirements
 
-2 - VS Code'da su eklentileri indir:
+1. Install dependencies
 
-i) C/C++ (Muhtemelen yukludur)
-ii) CMake Tools 
-iii) CMake (opsıyonel)
+* cmake
+* GLFW
+* OpenGL
+* GLEW (required if you are not using macOS)
 
-3 - Sanırım bu kadar.
+---
 
-Ardından sunları yapmalısın:
+2. VS Code Extensions
 
-VS Code ile proje directorysini ac.
-VS Code muhtemelen compiler soracak, GCC secebilirsin veya CLANG++.
-Sol altta build ve run tuslarının cıkması gerek.
+Make sure you have the following extensions installed in VS Code:
 
-Cıkmazsa:
+* C/C++
+* CMake Tools
+* CMake (optional)
+
+---
+
+### Build Instructions
+
+Option 1 — Using VS Code
+
+1. Open the project folder in VS Code
+2. When prompted, select a compiler (GCC or Clang++)
+3. You should see Build and Run buttons in the bottom bar
+
+---
+
+Option 2 — Manual Build
+
+If VS Code doesn’t configure automatically, you can build manually:
 
 mkdir build
 cd build
 cmake ..
 make
 
-komutlarını yazarsan kodun compile olması gerek.
+---
 
-Tesekkurler
-
+The project should (hopefully) compile and run after these steps. Even if it does not compile, I added some example photos just in case. They are in the examples folder.
