@@ -1,11 +1,10 @@
-#ifndef INITSHADER
-#define INITSHADER
-
-#include <GLFW/glfw3.h>
-#include <OpenGL/gl3.h>
+#ifndef INITSHADER_H
+#define INITSHADER_H
 
 #include <cstdio>
 #include <iostream>
+
+#include "includes.h"
 
 GLuint InitShader(const char* vShaderFile, const char* fShaderFile);
 
