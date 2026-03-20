@@ -1,7 +1,4 @@
-#include <iostream>
-
-#include "InitShader.h"
-#include "my_math.h"
+#include "includes.h"
 
 const int num_segments = 6;
 
