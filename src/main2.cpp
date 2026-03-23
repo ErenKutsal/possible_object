@@ -6,7 +6,7 @@ float scale_factor = num_segments / 3.0f;  // How much bigger the shape needs to
 float radius = 0.5f * scale_factor;
 float zStep = 0.15f * scale_factor;
 
-const int num_vertices = 24;
+const int num_vertices = 36;
 vec3 segment_vertices[num_vertices];
 vec3 half_segment_vertices[num_vertices];
 
@@ -83,6 +83,22 @@ void create_solid_segment(int n_segments, float radius, float thickness)
     segment_vertices[idx++] = v_in_R;
     segment_vertices[idx++] = v_in_L;
 
+    // 5. Left Tip (Vertices 24 to 29)
+    segment_vertices[idx++] = v_in_L;
+    segment_vertices[idx++] = v_rid_L;
+    segment_vertices[idx++] = v_bot_L;
+    segment_vertices[idx++] = v_rid_L;
+    segment_vertices[idx++] = v_bot_L;
+    segment_vertices[idx++] = v_out_L;
+
+    // 6. Right Tip (Vertices 30 to 35)
+    segment_vertices[idx++] = v_in_R;
+    segment_vertices[idx++] = v_rid_R;
+    segment_vertices[idx++] = v_bot_R;
+    segment_vertices[idx++] = v_rid_R;
+    segment_vertices[idx++] = v_bot_R;
+    segment_vertices[idx++] = v_out_R;
+
     //////////////////////////////////
     // Same things for half segment //
     //////////////////////////////////
@@ -137,6 +153,22 @@ void create_solid_segment(int n_segments, float radius, float thickness)
     half_segment_vertices[idx++] = h_v_bot_L;
     half_segment_vertices[idx++] = h_v_in_R;
     half_segment_vertices[idx++] = h_v_in_L;
+
+    // 5. Left Tip (Vertices 24 to 29)
+    half_segment_vertices[idx++] = h_v_in_L;
+    half_segment_vertices[idx++] = h_v_rid_L;
+    half_segment_vertices[idx++] = h_v_bot_L;
+    half_segment_vertices[idx++] = h_v_rid_L;
+    half_segment_vertices[idx++] = h_v_bot_L;
+    half_segment_vertices[idx++] = h_v_out_L;
+
+    // 6. Right Tip (Vertices 30 to 35)
+    half_segment_vertices[idx++] = h_v_in_R;
+    half_segment_vertices[idx++] = h_v_rid_R;
+    half_segment_vertices[idx++] = h_v_bot_R;
+    half_segment_vertices[idx++] = h_v_rid_R;
+    half_segment_vertices[idx++] = h_v_bot_R;
+    half_segment_vertices[idx++] = h_v_out_R;
 }
 
 void init()
@@ -238,6 +270,10 @@ void display(void)
             glUniform3fv(color_loc, 1, &bottomColor.x);
             glDrawArrays(GL_TRIANGLES, 12, 12);
 
+            // Draw the Left Tip Face (Vertices 24-35)
+            glUniform3fv(color_loc, 1, &bottomColor.x);
+            glDrawArrays(GL_TRIANGLES, 24, 12);
+
             coloring_index--;  // reset this
 
             // Draw right half
@@ -256,6 +292,10 @@ void display(void)
             // Draw the Top Outer Face (Vertices 18-23)
             glUniform3fv(color_loc, 1, &colors[coloring_index % 3].x);
             glDrawArrays(GL_TRIANGLES, 18, 6);
+
+            // Draw the Right Tip Face (Vertices 24-35)
+            glUniform3fv(color_loc, 1, &bottomColor.x);
+            glDrawArrays(GL_TRIANGLES, 24, 12);
         }
         else
         {
@@ -279,6 +319,9 @@ void display(void)
             // Draw the Bottom Volume Faces (Vertices 12-23)
             glUniform3fv(color_loc, 1, &bottomColor.x);
             glDrawArrays(GL_TRIANGLES, 12, 12);
+
+            glUniform3fv(color_loc, 1, &bottomColor.x);
+            glDrawArrays(GL_TRIANGLES, 24, 12);
         }
     }
 
