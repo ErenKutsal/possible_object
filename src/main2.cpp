@@ -1,8 +1,8 @@
 #include "includes.h"
 
-const int num_segments = 15;
+int num_segments = 3;
 
-float scale_factor = num_segments / 3.0f;  // How much bigger the shape needs to be compared to the 6-bar original
+float scale_factor = num_segments / 3.0f;  // How much bigger the shape needs to be compared to the 3-bar original
 float radius = 0.5f * scale_factor;
 float zStep = 0.15f * scale_factor;
 
@@ -24,17 +24,17 @@ bool is_dragging = false;
 double last_mouse_x = 0.0;
 double last_mouse_y = 0.0;
 
-void create_solid_segment(float radius, float thickness)
+void create_solid_segment(int n_segments, float radius, float thickness)
 {
     float half_thick = thickness / 2.0f;
     float ridge_z = half_thick;
-    float L = radius * tanf(M_PI / num_segments);
+    float L = radius * tanf(M_PI / n_segments);
 
     // I really cooked some math here. I am not sure i can do it again.
     // Naming is not good. Inner has lower y coordinate, outer has higher.
-    float dx_inner = (half_thick / sinf(2 * M_PI / num_segments)) - (half_thick * tanf(M_PI / num_segments));
-    float dx_center = half_thick / sinf(2 * M_PI / num_segments);
-    float dx_outer = (half_thick / sinf(2 * M_PI / num_segments)) - (half_thick / tanf(2 * M_PI / num_segments));
+    float dx_inner = (half_thick / sinf(2 * M_PI / n_segments)) - (half_thick * tanf(M_PI / n_segments));
+    float dx_center = half_thick / sinf(2 * M_PI / n_segments);
+    float dx_outer = (half_thick / sinf(2 * M_PI / n_segments)) - (half_thick / tanf(2 * M_PI / n_segments));
 
     // 1. Inner Edge
     vec3 v_in_L = vec3(-L - dx_inner, -half_thick, 0.0f);
@@ -141,7 +141,7 @@ void create_solid_segment(float radius, float thickness)
 
 void init()
 {
-    create_solid_segment(radius, 0.15f * log(num_segments));  // second parameter is arbitrary
+    create_solid_segment(num_segments, radius, 0.15f * log(num_segments));  // second parameter is arbitrary
 
     program = InitShader("../shaders/vshader.glsl", "../shaders/fshader.glsl");
     glUseProgram(program);
@@ -156,7 +156,7 @@ void init()
 
     glGenBuffers(1, &segment_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, segment_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(segment_vertices), segment_vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(segment_vertices), segment_vertices, GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(loc);
     glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
@@ -167,7 +167,7 @@ void init()
 
     glGenBuffers(1, &half_segment_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, half_segment_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(half_segment_vertices), half_segment_vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(half_segment_vertices), half_segment_vertices, GL_DYNAMIC_DRAW);
 
     glEnableVertexAttribArray(loc);
     glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
@@ -206,7 +206,7 @@ void display(void)
 
     for (int bar_index = 0; bar_index < num_segments; bar_index++)
     {
-        float angle = bar_index * (360 / num_segments);  // index * 2pi/n in degrees
+        float angle = bar_index * (360.0f / num_segments);  // index * 2pi/n in degrees
         float zDepth = -bar_index * zStep +
                        (num_segments * zStep);  // The thing in parantheses makes sure the object is centered at z = 0.
 
@@ -285,10 +285,41 @@ void display(void)
     glFinish();
 }
 
+void set_constants(int n_segments)
+{
+    num_segments = n_segments;
+
+    scale_factor = n_segments / 3.0f;
+    radius = 0.5f * scale_factor;
+    zStep = 0.15f * scale_factor;
+
+    camera_radius = 0.5f;
+    camera_theta = M_PI / 2.0f;
+    camera_phi = M_PI / 2.0f;
+
+    is_dragging = false;
+    last_mouse_x = 0.0;
+    last_mouse_y = 0.0;
+
+    create_solid_segment(n_segments, radius, 0.15f * log(num_segments));
+
+    glBindBuffer(GL_ARRAY_BUFFER, segment_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(segment_vertices), segment_vertices, GL_DYNAMIC_DRAW);
+
+    glBindBuffer(GL_ARRAY_BUFFER, half_segment_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(half_segment_vertices), half_segment_vertices, GL_DYNAMIC_DRAW);
+}
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     switch (key)
     {
+        case GLFW_KEY_SPACE:
+            if (action == GLFW_PRESS)
+            {
+                set_constants(num_segments + 1);
+            }
+            break;
         case GLFW_KEY_ESCAPE:
         case GLFW_KEY_Q:
             exit(EXIT_SUCCESS);

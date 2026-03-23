@@ -11,7 +11,7 @@ I wrote some code to build (im)possible n-agon shapes. You can also rotate it wi
 * cmake
 * GLFW
 * OpenGL
-* GLEW (required if you are not using macOS)
+* GLEW (required if you are not using macOS) 
 
 ---
 
