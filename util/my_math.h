@@ -208,6 +208,22 @@ inline mat4 LookAt(const vec3& eye, const vec3& at, const vec3& up)
     return view * translation;
 }
 
+inline mat4 Perspective(float fovy, float aspect, float near, float far)
+{
+    float rad = fovy * DEG2RAD;
+    float top = near * tanf(rad / 2.0f);
+    float right = top * aspect;
+
+    mat4 result;
+    result.d[0].x = near / right;
+    result.d[1].y = near / top;
+    result.d[2].z = -(far + near) / (far - near);
+    result.d[2].w = -1.0f;
+    result.d[3].z = -2.0f * far * near / (far - near);
+    result.d[3].w = 0.0f;
+    return result;
+}
+
 inline mat4 Ortho(float left, float right, float bottom, float top, float near,
                   float far)
 {
