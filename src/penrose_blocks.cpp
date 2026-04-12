@@ -15,9 +15,6 @@ GLuint penrose_block_projectionPos;
 // ------------------------------------------------
 // Penrose Triangle (Block Variant)
 //
-// Ported from Blender_ParadoxToolkit by Matias Garate
-// https://github.com/matgarate/Blender_ParadoxToolkit
-//
 // Instead of continuous bars, this variant uses discrete
 // cubes arranged along the triangular path.
 //

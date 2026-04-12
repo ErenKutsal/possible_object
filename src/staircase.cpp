@@ -15,9 +15,6 @@ GLuint stair_projectionPos;
 // ------------------------------------------------
 // Penrose Staircase
 //
-// Ported from Blender_ParadoxToolkit by Matias Garate
-// https://github.com/matgarate/Blender_ParadoxToolkit
-//
 // An impossible staircase that appears to continuously
 // ascend (or descend) yet forms a closed loop.
 //
