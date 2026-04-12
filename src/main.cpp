@@ -1,12 +1,10 @@
 #include "includes.h"
-#include "penrose.h"
 #include "neckercube.h"
+#include "penrose.h"
 
 const int NUM_OBJECTS = 5;
-const char* object_names[NUM_OBJECTS] = {
-    "Impossible Polygon", "Penrose Triangle",
-    "Impossible Cube", "Penrose Blocks", "Impossible Arch"
-};
+const char* object_names[NUM_OBJECTS] = {"Impossible Polygon", "Penrose Triangle", "Impossible Cube", "Penrose Blocks",
+                                         "Impossible Arch"};
 
 // =============================================
 // Which object to show: 0 = impossible polygon, 1 = penrose triangle
@@ -39,6 +37,11 @@ float camera_phi = M_PI / 2.0f;
 bool is_dragging = false;
 double last_mouse_x = 0.0;
 double last_mouse_y = 0.0;
+
+bool is_space_pressed = false;
+float spin_momentum = 0.0f;
+float global_spin_angle = 0.0f;
+float last_frame_time = 0.0f;
 
 // =============================================
 // Impossible Polygon geometry
@@ -240,12 +243,38 @@ void polygon_display(void)
     float view_size = scale_factor + 0.5f;
     mat4 proj = Ortho(-view_size, view_size, -view_size, view_size, -1000.0f, 1000.0f);
 
-    mat4 viewProj = proj * view;
+    // --- SPIN MATH ---
+    float current_time = glfwGetTime();
+    if (last_frame_time == 0.0f) last_frame_time = current_time;  // Safety for frame 1
+    float delta_time = current_time - last_frame_time;
+    last_frame_time = current_time;
 
-    vec3 light(0.73f, 0.58f, 0.62f);       // pink
-    vec3 med(0.45f, 0.47f, 0.65f);         // blue medium
-    vec3 dark(0.35f, 0.38f, 0.58f);        // blue dark
-    vec3 bottomColor(0.28f, 0.30f, 0.45f); // dark bottom
+    // 1. Engine Throttle & Friction
+    if (is_space_pressed)
+    {
+        spin_momentum += 0.4f * delta_time;  // Takes 2.5 seconds to reach max speed
+        if (spin_momentum > 1.0f) spin_momentum = 1.0f;
+    }
+    else
+    {
+        spin_momentum -= 0.6f * delta_time;  // Brakes slightly faster than it accelerates
+        if (spin_momentum < 0.0f) spin_momentum = 0.0f;
+    }
+
+    // 2. Calculate the heavy exponential speed curve
+    float spin_speed = (spin_momentum * spin_momentum * spin_momentum) * 2000.0f;
+
+    // 3. Accumulate the actual rotation angle!
+    global_spin_angle += spin_speed * delta_time;
+
+    mat4 global_spin =
+        RotateX(global_spin_angle) * RotateY(global_spin_angle * 1.3f) * RotateZ(global_spin_angle * 0.7f);
+    mat4 viewProj = proj * view * global_spin;
+
+    vec3 light(0.73f, 0.58f, 0.62f);        // pink
+    vec3 med(0.45f, 0.47f, 0.65f);          // blue medium
+    vec3 dark(0.35f, 0.38f, 0.58f);         // blue dark
+    vec3 bottomColor(0.28f, 0.30f, 0.45f);  // dark bottom
 
     vec3 colors[3] = {dark, med, light};
     int coloring_index = 0;
@@ -253,8 +282,7 @@ void polygon_display(void)
     for (int bar_index = 0; bar_index < num_segments; bar_index++)
     {
         float angle = bar_index * (360.0f / num_segments);
-        float zDepth = -bar_index * zStep +
-                       (num_segments * zStep);
+        float zDepth = -bar_index * zStep + (num_segments * zStep);
 
         if (bar_index == 0)
         {
@@ -365,12 +393,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (action == GLFW_PRESS)
     {
         int target = -1;
-        if (key == GLFW_KEY_TAB)          target = (current_object + 1) % NUM_OBJECTS;
-        else if (key == GLFW_KEY_1)       target = 0;
-        else if (key == GLFW_KEY_2)       target = 1;
-        else if (key == GLFW_KEY_3)       target = 2;
-        else if (key == GLFW_KEY_4)       target = 3;
-        else if (key == GLFW_KEY_5)       target = 4;
+        if (key == GLFW_KEY_TAB)
+            target = (current_object + 1) % NUM_OBJECTS;
+        else if (key == GLFW_KEY_1)
+            target = 0;
+        else if (key == GLFW_KEY_2)
+            target = 1;
+        else if (key == GLFW_KEY_3)
+            target = 2;
+        else if (key == GLFW_KEY_4)
+            target = 3;
+        else if (key == GLFW_KEY_5)
+            target = 4;
 
         if (target != -1)
         {
@@ -388,7 +422,23 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             case GLFW_KEY_SPACE:
                 if (action == GLFW_PRESS)
                 {
+                    is_space_pressed = true;
+                }
+                else if (action == GLFW_RELEASE)
+                {
+                    is_space_pressed = false;
+                }
+                break;
+            case GLFW_KEY_D:
+                if (action == GLFW_PRESS)
+                {
                     set_constants(num_segments + 1);
+                }
+                break;
+            case GLFW_KEY_A:
+                if (action == GLFW_PRESS)
+                {
+                    set_constants(num_segments - 1);
                 }
                 break;
             case GLFW_KEY_ESCAPE:
@@ -454,7 +504,7 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
             last_mouse_x = xpos;
             last_mouse_y = ypos;
 
-            camera_theta -= deltaX * 0.01f;
+            camera_theta += deltaX * 0.01f;
             camera_phi += deltaY * 0.01f;
 
             if (camera_phi < 0.01f) camera_phi = 0.01f;

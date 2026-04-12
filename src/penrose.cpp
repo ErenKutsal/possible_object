@@ -43,7 +43,7 @@ vec4 getFaceColor(int faceIndex)
     if (faceIndex == 2) return vec4(0.78f, 0.65f, 0.68f, 1);  // pink light top
     if (faceIndex == 3) return vec4(0.28f, 0.30f, 0.45f, 1);  // dark bottom
     if (faceIndex == 4) return vec4(0.45f, 0.47f, 0.65f, 1);  // blue medium
-    return vec4(0.35f, 0.38f, 0.58f, 1);                       // blue dark
+    return vec4(0.35f, 0.38f, 0.58f, 1);                      // blue dark
 }
 
 // ------------------------------------------------
@@ -52,41 +52,33 @@ vec4 getFaceColor(int faceIndex)
 void buildCube(vec4* posArray, vec4* colArray)
 {
     // 8 cuboid corners
-    vec4 vertices[8] = {
-        vec4(-0.5,-0.5, 0.5,1),
-        vec4(-0.5, 0.5, 0.5,1),
-        vec4(0.5, 0.5, 0.5,1),
-        vec4(0.5,-0.5, 0.5,1),
-        vec4(-0.5,-0.5,-0.5,1),
-        vec4(-0.5, 0.5,-0.5,1),
-        vec4(0.5, 0.5,-0.5,1),
-        vec4(0.5,-0.5,-0.5,1)
-    };
+    vec4 vertices[8] = {vec4(-0.5, -0.5, 0.5, 1), vec4(-0.5, 0.5, 0.5, 1),   vec4(0.5, 0.5, 0.5, 1),
+                        vec4(0.5, -0.5, 0.5, 1),  vec4(-0.5, -0.5, -0.5, 1), vec4(-0.5, 0.5, -0.5, 1),
+                        vec4(0.5, 0.5, -0.5, 1),  vec4(0.5, -0.5, -0.5, 1)};
 
     int index = 0;
 
     // 6 faces; each face is defined by 4 vertices
-    int faces[6][4] = {
-        {0,1,2,3},
-        {3,2,6,7},
-        {0,1,5,4},
-        {2,1,5,6},
-        {4,5,6,7},
-        {0,3,7,4}
-    };
+    int faces[6][4] = {{0, 1, 2, 3}, {3, 2, 6, 7}, {0, 1, 5, 4}, {2, 1, 5, 6}, {4, 5, 6, 7}, {0, 3, 7, 4}};
 
     // build 2 triangles for each face
     for (int i = 0; i < 6; i++)
     {
         vec4 c = getFaceColor(i);
 
-        posArray[index] = vertices[faces[i][0]]; colArray[index++] = c;
-        posArray[index] = vertices[faces[i][1]]; colArray[index++] = c;
-        posArray[index] = vertices[faces[i][2]]; colArray[index++] = c;
+        posArray[index] = vertices[faces[i][0]];
+        colArray[index++] = c;
+        posArray[index] = vertices[faces[i][1]];
+        colArray[index++] = c;
+        posArray[index] = vertices[faces[i][2]];
+        colArray[index++] = c;
 
-        posArray[index] = vertices[faces[i][0]]; colArray[index++] = c;
-        posArray[index] = vertices[faces[i][2]]; colArray[index++] = c;
-        posArray[index] = vertices[faces[i][3]]; colArray[index++] = c;
+        posArray[index] = vertices[faces[i][0]];
+        colArray[index++] = c;
+        posArray[index] = vertices[faces[i][2]];
+        colArray[index++] = c;
+        posArray[index] = vertices[faces[i][3]];
+        colArray[index++] = c;
     }
 }
 
@@ -127,28 +119,26 @@ void penrose_cursorPosCallback(GLFWwindow* window, double x, double y)
     penrose_mouseY = y;
 }
 
-void penrose_scrollCallback(GLFWwindow*, double, double yoffset)
-{
-    penrose_angleZ += (float)yoffset * 2.0;
-}
+void penrose_scrollCallback(GLFWwindow*, double, double yoffset) { penrose_angleZ += (float)yoffset * 2.0; }
 
 void penrose_keyCallback(GLFWwindow* win, int key, int, int action, int)
 {
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
-        if (key == GLFW_KEY_LEFT)  penrose_angleY -= 3;
+        if (key == GLFW_KEY_LEFT) penrose_angleY -= 3;
         if (key == GLFW_KEY_RIGHT) penrose_angleY += 3;
-        if (key == GLFW_KEY_UP)    penrose_angleX -= 3;
-        if (key == GLFW_KEY_DOWN)  penrose_angleX += 3;
+        if (key == GLFW_KEY_UP) penrose_angleX -= 3;
+        if (key == GLFW_KEY_DOWN) penrose_angleX += 3;
 
         // reset position
         if (key == GLFW_KEY_R)
         {
-            penrose_angleX = 18; penrose_angleY = 0; penrose_angleZ = -25;
+            penrose_angleX = 18;
+            penrose_angleY = 0;
+            penrose_angleZ = -25;
         }
 
-        if (key == GLFW_KEY_ESCAPE)
-            glfwSetWindowShouldClose(win, GL_TRUE);
+        if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(win, GL_TRUE);
     }
 }
 
@@ -204,12 +194,12 @@ void penrose_display()
 
     // camera
     vec3 eye(2.5, 2.5, 2.5);
-    vec3 at(0.75, 0.75, 0.35);
+    vec3 at(0.0, 0.0, 0.0);  // <--- CHANGED: Was (0.75, 0.75, 0.35)
     vec3 up(0, 1, 0);
     mat4 view = LookAt(eye, at, up);
 
     // perspective
-    mat4 projection = Perspective(50.0, 550.0/500.0, 0.1, 10.0);
+    mat4 projection = Perspective(50.0, 550.0 / 500.0, 0.1, 10.0);
 
     glUniformMatrix4fv(penrose_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(penrose_projectionPos, 1, GL_FALSE, &projection.d[0].x);
@@ -220,20 +210,26 @@ void penrose_display()
     float length = 1.10;
     float thickness = 0.22;
 
+    float cx = length * 0.5f;
+    float cy = length * 0.5f;
+    float cz = -length * 0.5f;
+    mat4 centerOffset = Translate(-cx, -cy, -cz);
+
     // cuboid 1
-    mat4 model1 = sceneRotation * Translate(length * 0.5, 0, 0) * Scale(length, thickness, thickness);
+    mat4 model1 = sceneRotation * centerOffset * Translate(length * 0.5, 0, 0) * Scale(length, thickness, thickness);
     glUniformMatrix4fv(penrose_modelPos, 1, GL_FALSE, &model1.d[0].x);
     glDrawArrays(GL_TRIANGLES, 0, verticesPerCuboid);
 
     // cuboid 2
-    mat4 model2 = sceneRotation * Translate(length - thickness * 0.5, length * 0.5, 0)
-        * RotateZ(90) * Scale(length, thickness, thickness);
+    mat4 model2 = sceneRotation * centerOffset * Translate(length - thickness * 0.5, length * 0.5, 0) * RotateZ(90) *
+                  Scale(length, thickness, thickness);
     glUniformMatrix4fv(penrose_modelPos, 1, GL_FALSE, &model2.d[0].x);
     glDrawArrays(GL_TRIANGLES, verticesPerCuboid, verticesPerCuboid);
 
     // cuboid 3
-    mat4 model3 = sceneRotation * Translate(length - thickness * 0.5, length - thickness * 0.5, -length * 0.5)
-        * RotateY(90) * Scale(length, thickness, thickness);
+    mat4 model3 = sceneRotation * centerOffset *
+                  Translate(length - thickness * 0.5, length - thickness * 0.5, -length * 0.5) * RotateY(90) *
+                  Scale(length, thickness, thickness);
     glUniformMatrix4fv(penrose_modelPos, 1, GL_FALSE, &model3.d[0].x);
     glDrawArrays(GL_TRIANGLES, 2 * verticesPerCuboid, verticesPerCuboid);
 
