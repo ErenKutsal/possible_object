@@ -18,19 +18,20 @@ endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/util ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/shaders)
 
-add_executable(imposible.out src/main.cpp src/penrose.cpp util/InitShader.cpp)
+add_executable(imposible.out src/main.cpp src/penrose.cpp src/neckercube.cpp src/penrose_blocks.cpp src/arch.cpp util/InitShader.cpp)
 
 if(APPLE)
     # Mac linking (No GLEW required)
-    target_link_libraries(imposible.out PRIVATE 
-        OpenGL::GL 
+    target_link_libraries(imposible.out PRIVATE
+        OpenGL::GL
         glfw
     )
 else()
     # Linux and Windows linking (Requires GLEW)
-    target_link_libraries(imposible.out PRIVATE 
-        OpenGL::GL 
+    target_link_libraries(imposible.out PRIVATE
+        OpenGL::GL
         glfw
         GLEW::GLEW
     )
 endif()
+

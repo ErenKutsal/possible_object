@@ -1,5 +1,12 @@
 #include "includes.h"
 #include "penrose.h"
+#include "neckercube.h"
+
+const int NUM_OBJECTS = 5;
+const char* object_names[NUM_OBJECTS] = {
+    "Impossible Polygon", "Penrose Triangle",
+    "Impossible Cube", "Penrose Blocks", "Impossible Arch"
+};
 
 // =============================================
 // Which object to show: 0 = impossible polygon, 1 = penrose triangle
@@ -235,10 +242,10 @@ void polygon_display(void)
 
     mat4 viewProj = proj * view;
 
-    vec3 light(0.7f, 0.7f, 0.7f);
-    vec3 med(0.4f, 0.4f, 0.4f);
-    vec3 dark(0.1f, 0.1f, 0.1f);
-    vec3 bottomColor(0.15f, 0.15f, 0.15f);
+    vec3 light(0.73f, 0.58f, 0.62f);       // pink
+    vec3 med(0.45f, 0.47f, 0.65f);         // blue medium
+    vec3 dark(0.35f, 0.38f, 0.58f);        // blue dark
+    vec3 bottomColor(0.28f, 0.30f, 0.45f); // dark bottom
 
     vec3 colors[3] = {dark, med, light};
     int coloring_index = 0;
@@ -261,7 +268,7 @@ void polygon_display(void)
             glBindVertexArray(half_segment_vao);
 
             // Draw left half
-            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_l.d[0][0]);
+            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_l.d[0].x);
 
             glUniform3fv(color_loc, 1, &colors[(coloring_index) % 3].x);
             glDrawArrays(GL_TRIANGLES, 6, 6);
@@ -280,7 +287,7 @@ void polygon_display(void)
             coloring_index--;
 
             // Draw right half
-            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_r.d[0][0]);
+            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_r.d[0].x);
 
             glUniform3fv(color_loc, 1, &bottomColor.x);
             glDrawArrays(GL_TRIANGLES, 0, 12);
@@ -303,7 +310,7 @@ void polygon_display(void)
 
             glBindVertexArray(segment_vao);
 
-            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp.d[0][0]);
+            glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp.d[0].x);
 
             glUniform3fv(color_loc, 1, &colors[(coloring_index) % 3].x);
             glDrawArrays(GL_TRIANGLES, 6, 6);
@@ -354,12 +361,23 @@ void set_constants(int n_segments)
 // =============================================
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    // Tab switches between objects
-    if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
+    // Tab cycles, number keys jump directly
+    if (action == GLFW_PRESS)
     {
-        current_object = (current_object + 1) % 2;
-        std::cout << (current_object == 0 ? "Impossible Polygon" : "Penrose Triangle") << std::endl;
-        return;
+        int target = -1;
+        if (key == GLFW_KEY_TAB)          target = (current_object + 1) % NUM_OBJECTS;
+        else if (key == GLFW_KEY_1)       target = 0;
+        else if (key == GLFW_KEY_2)       target = 1;
+        else if (key == GLFW_KEY_3)       target = 2;
+        else if (key == GLFW_KEY_4)       target = 3;
+        else if (key == GLFW_KEY_5)       target = 4;
+
+        if (target != -1)
+        {
+            current_object = target;
+            std::cout << object_names[current_object] << std::endl;
+            return;
+        }
     }
 
     if (current_object == 0)
@@ -379,9 +397,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                 break;
         }
     }
-    else
+    else if (current_object == 1)
     {
         penrose_keyCallback(window, key, scancode, action, mods);
+    }
+    else if (current_object == 2)
+    {
+        cube_keyCallback(window, key, scancode, action, mods);
+    }
+    else if (current_object == 3)
+    {
+        penrose_block_keyCallback(window, key, scancode, action, mods);
+    }
+    else if (current_object == 4)
+    {
+        arch_keyCallback(window, key, scancode, action, mods);
     }
 }
 
@@ -402,10 +432,14 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
             }
         }
     }
-    else
-    {
+    else if (current_object == 1)
         penrose_mouseButtonCallback(window, button, action, mods);
-    }
+    else if (current_object == 2)
+        cube_mouseButtonCallback(window, button, action, mods);
+    else if (current_object == 3)
+        penrose_block_mouseButtonCallback(window, button, action, mods);
+    else if (current_object == 4)
+        arch_mouseButtonCallback(window, button, action, mods);
 }
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -427,18 +461,26 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
             if (camera_phi > M_PI - 0.01f) camera_phi = M_PI - 0.01f;
         }
     }
-    else
-    {
+    else if (current_object == 1)
         penrose_cursorPosCallback(window, xpos, ypos);
-    }
+    else if (current_object == 2)
+        cube_cursorPosCallback(window, xpos, ypos);
+    else if (current_object == 3)
+        penrose_block_cursorPosCallback(window, xpos, ypos);
+    else if (current_object == 4)
+        arch_cursorPosCallback(window, xpos, ypos);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     if (current_object == 1)
-    {
         penrose_scrollCallback(window, xoffset, yoffset);
-    }
+    else if (current_object == 2)
+        cube_scrollCallback(window, xoffset, yoffset);
+    else if (current_object == 3)
+        penrose_block_scrollCallback(window, xoffset, yoffset);
+    else if (current_object == 4)
+        arch_scrollCallback(window, xoffset, yoffset);
 }
 
 // =============================================
@@ -455,13 +497,14 @@ int main()
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
     GLFWwindow* window = glfwCreateWindow(512, 512, "Impossible Objects", NULL, NULL);
-    glfwMakeContextCurrent(window);
 
     if (!window)
     {
         glfwTerminate();
         exit(EXIT_FAILURE);
     }
+
+    glfwMakeContextCurrent(window);
 
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
@@ -472,17 +515,23 @@ int main()
     glewInit();
 #endif
 
-    // Initialize both objects
+    // Initialize all objects
     polygon_init();
     penrose_init();
+    cube_init();
+    penrose_block_init();
+    arch_init();
 
-    glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
+    glClearColor(0.75f, 0.78f, 0.80f, 1.0f);  // light teal background
     glEnable(GL_DEPTH_TEST);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    std::cout << "Press TAB to switch between objects" << std::endl;
-    std::cout << "  Impossible Polygon: SPACE to add edges, mouse drag to rotate" << std::endl;
-    std::cout << "  Penrose Triangle: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
+    std::cout << "Press TAB to cycle objects, or 1-5 to jump directly" << std::endl;
+    std::cout << "  1. Impossible Polygon: SPACE to add edges, mouse drag to rotate" << std::endl;
+    std::cout << "  2. Penrose Triangle: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
+    std::cout << "  3. Impossible Cube: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
+    std::cout << "  4. Penrose Blocks: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
+    std::cout << "  5. Impossible Arch: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
 
     double frameRate = 30, currentTime, previousTime = 0.0;
     while (!glfwWindowShouldClose(window))
@@ -494,16 +543,19 @@ int main()
             previousTime = currentTime;
         }
 
+        // Light teal background matching the image
+        glClearColor(0.75f, 0.78f, 0.80f, 1.0f);
+
         if (current_object == 0)
-        {
-            glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
             polygon_display();
-        }
-        else
-        {
-            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        else if (current_object == 1)
             penrose_display();
-        }
+        else if (current_object == 2)
+            cube_display();
+        else if (current_object == 3)
+            penrose_block_display();
+        else if (current_object == 4)
+            arch_display();
 
         glfwSwapBuffers(window);
     }

@@ -38,12 +38,12 @@ double penrose_mouseY = 0.0;
 // ------------------------------------------------
 vec4 getFaceColor(int faceIndex)
 {
-    if (faceIndex == 0) return vec4(0.2, 0.7, 0.9, 1);
-    if (faceIndex == 1) return vec4(0.05, 0.4, 0.6, 1);
-    if (faceIndex == 2) return vec4(0.1, 0.6, 0.8, 1);
-    if (faceIndex == 3) return vec4(0.03, 0.3, 0.45, 1);
-    if (faceIndex == 4) return vec4(0.04, 0.3, 0.48, 1);
-    return vec4(0.03, 0.28, 0.45, 1);
+    if (faceIndex == 0) return vec4(0.73f, 0.58f, 0.62f, 1);  // pink front
+    if (faceIndex == 1) return vec4(0.35f, 0.38f, 0.58f, 1);  // blue dark
+    if (faceIndex == 2) return vec4(0.78f, 0.65f, 0.68f, 1);  // pink light top
+    if (faceIndex == 3) return vec4(0.28f, 0.30f, 0.45f, 1);  // dark bottom
+    if (faceIndex == 4) return vec4(0.45f, 0.47f, 0.65f, 1);  // blue medium
+    return vec4(0.35f, 0.38f, 0.58f, 1);                       // blue dark
 }
 
 // ------------------------------------------------
