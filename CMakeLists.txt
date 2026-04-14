@@ -16,9 +16,9 @@ if(NOT APPLE)
     find_package(GLEW REQUIRED)
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/util ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/shaders)
+include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/shaders)
 
-add_executable(imposible.out src/main.cpp src/penrose.cpp src/neckercube.cpp src/penrose_blocks.cpp src/arch.cpp util/InitShader.cpp)
+add_executable(imposible.out src/main.cpp src/penrose.cpp src/neckercube.cpp src/penrose_blocks.cpp src/arch.cpp)
 
 if(APPLE)
     # Mac linking (No GLEW required)

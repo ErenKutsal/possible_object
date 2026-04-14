@@ -60,7 +60,7 @@ vec4 penrose_block_faceColor(int faceIndex)
     if (faceIndex == 2) return vec4(0.76f, 0.60f, 0.64f, 1.0f);  // Y+
     if (faceIndex == 3) return vec4(0.35f, 0.37f, 0.52f, 1.0f);  // Y-
     if (faceIndex == 4) return vec4(0.73f, 0.58f, 0.62f, 1.0f);  // Z+
-    return vec4(0.42f, 0.45f, 0.60f, 1.0f);                       // Z-
+    return vec4(0.42f, 0.45f, 0.60f, 1.0f);                      // Z-
 }
 
 // ------------------------------------------------
@@ -68,16 +68,9 @@ vec4 penrose_block_faceColor(int faceIndex)
 // ------------------------------------------------
 void penrose_block_buildCube(vec4* pos, vec4* col)
 {
-    vec4 v[8] = {
-        vec4(-0.5f, -0.5f, -0.5f, 1.0f),
-        vec4(-0.5f, -0.5f,  0.5f, 1.0f),
-        vec4(-0.5f,  0.5f, -0.5f, 1.0f),
-        vec4(-0.5f,  0.5f,  0.5f, 1.0f),
-        vec4( 0.5f, -0.5f, -0.5f, 1.0f),
-        vec4( 0.5f, -0.5f,  0.5f, 1.0f),
-        vec4( 0.5f,  0.5f, -0.5f, 1.0f),
-        vec4( 0.5f,  0.5f,  0.5f, 1.0f)
-    };
+    vec4 v[8] = {vec4(-0.5f, -0.5f, -0.5f, 1.0f), vec4(-0.5f, -0.5f, 0.5f, 1.0f), vec4(-0.5f, 0.5f, -0.5f, 1.0f),
+                 vec4(-0.5f, 0.5f, 0.5f, 1.0f),   vec4(0.5f, -0.5f, -0.5f, 1.0f), vec4(0.5f, -0.5f, 0.5f, 1.0f),
+                 vec4(0.5f, 0.5f, -0.5f, 1.0f),   vec4(0.5f, 0.5f, 0.5f, 1.0f)};
 
     // face winding from Blender addon CubePoint class
     int faces[6][4] = {
@@ -93,13 +86,19 @@ void penrose_block_buildCube(vec4* pos, vec4* col)
     for (int i = 0; i < 6; i++)
     {
         vec4 c = penrose_block_faceColor(i);
-        pos[idx] = v[faces[i][0]]; col[idx++] = c;
-        pos[idx] = v[faces[i][1]]; col[idx++] = c;
-        pos[idx] = v[faces[i][2]]; col[idx++] = c;
+        pos[idx] = v[faces[i][0]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][1]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][2]];
+        col[idx++] = c;
 
-        pos[idx] = v[faces[i][0]]; col[idx++] = c;
-        pos[idx] = v[faces[i][2]]; col[idx++] = c;
-        pos[idx] = v[faces[i][3]]; col[idx++] = c;
+        pos[idx] = v[faces[i][0]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][2]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][3]];
+        col[idx++] = c;
     }
 }
 
@@ -128,9 +127,8 @@ void penrose_block_buildScene()
 {
     for (int i = 0; i < penrose_block_cubeCount; i++)
     {
-        penrose_block_buildCube(
-            penrose_block_positions + i * penrose_block_vertsPerCube,
-            penrose_block_colors    + i * penrose_block_vertsPerCube);
+        penrose_block_buildCube(penrose_block_positions + i * penrose_block_vertsPerCube,
+                                penrose_block_colors + i * penrose_block_vertsPerCube);
     }
 }
 
@@ -142,8 +140,7 @@ void penrose_block_mouseButtonCallback(GLFWwindow* window, int button, int actio
     if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
         penrose_block_isDragging = (action == GLFW_PRESS);
-        if (penrose_block_isDragging)
-            glfwGetCursorPos(window, &penrose_block_mouseX, &penrose_block_mouseY);
+        if (penrose_block_isDragging) glfwGetCursorPos(window, &penrose_block_mouseX, &penrose_block_mouseY);
     }
 }
 
@@ -165,10 +162,10 @@ void penrose_block_keyCallback(GLFWwindow* win, int key, int, int action, int)
 {
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
-        if (key == GLFW_KEY_LEFT)  penrose_block_angleY -= 3.0f;
+        if (key == GLFW_KEY_LEFT) penrose_block_angleY -= 3.0f;
         if (key == GLFW_KEY_RIGHT) penrose_block_angleY += 3.0f;
-        if (key == GLFW_KEY_UP)    penrose_block_angleX -= 3.0f;
-        if (key == GLFW_KEY_DOWN)  penrose_block_angleX += 3.0f;
+        if (key == GLFW_KEY_UP) penrose_block_angleX -= 3.0f;
+        if (key == GLFW_KEY_DOWN) penrose_block_angleX += 3.0f;
 
         if (key == GLFW_KEY_R)
         {
@@ -176,8 +173,7 @@ void penrose_block_keyCallback(GLFWwindow* win, int key, int, int action, int)
             penrose_block_angleY = 0.0f;
             penrose_block_angleZ = -45.0f;
         }
-        if (key == GLFW_KEY_ESCAPE)
-            glfwSetWindowShouldClose(win, GL_TRUE);
+        if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(win, GL_TRUE);
     }
 }
 
@@ -213,9 +209,9 @@ void penrose_block_init()
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.72f, 0.75f, 0.72f, 1.0f);
 
-    penrose_block_modelPos      = glGetUniformLocation(penrose_block_shaderProgram, "model");
-    penrose_block_viewPos        = glGetUniformLocation(penrose_block_shaderProgram, "view");
-    penrose_block_projectionPos  = glGetUniformLocation(penrose_block_shaderProgram, "projection");
+    penrose_block_modelPos = glGetUniformLocation(penrose_block_shaderProgram, "model");
+    penrose_block_viewPos = glGetUniformLocation(penrose_block_shaderProgram, "view");
+    penrose_block_projectionPos = glGetUniformLocation(penrose_block_shaderProgram, "projection");
 }
 
 // ------------------------------------------------
@@ -238,9 +234,7 @@ void penrose_block_display()
     glUniformMatrix4fv(penrose_block_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(penrose_block_projectionPos, 1, GL_FALSE, &projection.d[0].x);
 
-    mat4 sceneRot = RotateY(penrose_block_angleY)
-                  * RotateX(penrose_block_angleX)
-                  * RotateZ(penrose_block_angleZ);
+    mat4 sceneRot = RotateY(penrose_block_angleY) * RotateX(penrose_block_angleX) * RotateZ(penrose_block_angleZ);
 
     float size = 1.0f;
     float L = 0.25f * size;
@@ -254,11 +248,14 @@ void penrose_block_display()
 
     // Direction pattern: 2xCi, 4xAi, 4xBi, 2xCi
     // Ci = (0, 0, -L), Ai = (0, L, 0), Bi = (-L, 0, 0)
-    struct { float dx, dy, dz; } dirs[12] = {
-        {0, 0, -L}, {0, 0, -L},               // 2x down
-        {0, L, 0}, {0, L, 0}, {0, L, 0}, {0, L, 0},  // 4x +Y
+    struct
+    {
+        float dx, dy, dz;
+    } dirs[12] = {
+        {0, 0, -L}, {0, 0, -L},                          // 2x down
+        {0, L, 0},  {0, L, 0},  {0, L, 0},  {0, L, 0},   // 4x +Y
         {-L, 0, 0}, {-L, 0, 0}, {-L, 0, 0}, {-L, 0, 0},  // 4x -X
-        {0, 0, -L}, {0, 0, -L}                // 2x down (close)
+        {0, 0, -L}, {0, 0, -L}                           // 2x down (close)
     };
 
     // Draw cube 0 at origin
