@@ -577,7 +577,7 @@ int main()
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     std::cout << "Press TAB to cycle objects, or 1-5 to jump directly" << std::endl;
-    std::cout << "  1. Impossible Polygon: SPACE to add edges, mouse drag to rotate" << std::endl;
+    std::cout << "  1. Impossible Polygon: SPACE to spin, D/A to add/remove edges, mouse drag to rotate" << std::endl;
     std::cout << "  2. Penrose Triangle: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
     std::cout << "  3. Impossible Cube: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
     std::cout << "  4. Penrose Blocks: arrow keys/mouse drag to rotate, R to reset, scroll to tilt" << std::endl;
