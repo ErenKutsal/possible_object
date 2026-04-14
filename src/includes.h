@@ -1,17 +1,16 @@
 #ifndef INCLUDES_H
 #define INCLUDES_H
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <cmath>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
-#include <iostream>
 
 #ifdef __APPLE__
-#define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl3.h>
 #else
 #include <GL/glew.h>
@@ -25,58 +24,66 @@
 //   mat4.d[4] is an array of vec4 (column-major)
 // ------------------------------------------------
 
-struct vec2 {
+struct vec2
+{
     float x, y;
     vec2() : x(0), y(0) {}
     vec2(float x, float y) : x(x), y(y) {}
 };
 
-struct vec3 {
+struct vec3
+{
     float x, y, z;
     vec3() : x(0), y(0), z(0) {}
     vec3(float x, float y, float z) : x(x), y(y), z(z) {}
-    vec3 operator-(const vec3& b) const { return vec3(x-b.x, y-b.y, z-b.z); }
-    vec3 operator+(const vec3& b) const { return vec3(x+b.x, y+b.y, z+b.z); }
-    vec3 operator*(float s) const { return vec3(x*s, y*s, z*s); }
+    vec3 operator-(const vec3& b) const { return vec3(x - b.x, y - b.y, z - b.z); }
+    vec3 operator+(const vec3& b) const { return vec3(x + b.x, y + b.y, z + b.z); }
+    vec3 operator*(float s) const { return vec3(x * s, y * s, z * s); }
 };
 
-inline vec3 cross(const vec3& a, const vec3& b) {
-    return vec3(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x);
+inline vec3 cross(const vec3& a, const vec3& b)
+{
+    return vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 }
-inline float dot(const vec3& a, const vec3& b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
-inline vec3 normalize(const vec3& v) {
+inline float dot(const vec3& a, const vec3& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+inline vec3 normalize(const vec3& v)
+{
     float len = sqrtf(dot(v, v));
     return len > 0 ? v * (1.0f / len) : v;
 }
 
-struct vec4 {
+struct vec4
+{
     float x, y, z, w;
     vec4() : x(0), y(0), z(0), w(0) {}
     vec4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
 };
 
-struct mat4 {
-    vec4 d[4]; // columns
+struct mat4
+{
+    vec4 d[4];  // columns
 
-    mat4() {
-        d[0] = vec4(1,0,0,0);
-        d[1] = vec4(0,1,0,0);
-        d[2] = vec4(0,0,1,0);
-        d[3] = vec4(0,0,0,1);
+    mat4()
+    {
+        d[0] = vec4(1, 0, 0, 0);
+        d[1] = vec4(0, 1, 0, 0);
+        d[2] = vec4(0, 0, 1, 0);
+        d[3] = vec4(0, 0, 0, 1);
     }
 
-    mat4 operator*(const mat4& b) const {
+    mat4 operator*(const mat4& b) const
+    {
         mat4 r;
         // Access as arrays for multiplication
         const float* A = &d[0].x;
         const float* B = &b.d[0].x;
         float* R = &r.d[0].x;
         for (int c = 0; c < 4; c++)
-            for (int row = 0; row < 4; row++) {
+            for (int row = 0; row < 4; row++)
+            {
                 float sum = 0;
-                for (int k = 0; k < 4; k++)
-                    sum += A[k*4+row] * B[c*4+k];
-                R[c*4+row] = sum;
+                for (int k = 0; k < 4; k++) sum += A[k * 4 + row] * B[c * 4 + k];
+                R[c * 4 + row] = sum;
             }
         return r;
     }
@@ -86,13 +93,15 @@ struct mat4 {
 // Transform functions
 // ------------------------------------------------
 
-inline mat4 Translate(float x, float y, float z) {
+inline mat4 Translate(float x, float y, float z)
+{
     mat4 m;
     m.d[3] = vec4(x, y, z, 1);
     return m;
 }
 
-inline mat4 Scale(float x, float y, float z) {
+inline mat4 Scale(float x, float y, float z)
+{
     mat4 m;
     m.d[0].x = x;
     m.d[1].y = y;
@@ -100,7 +109,8 @@ inline mat4 Scale(float x, float y, float z) {
     return m;
 }
 
-inline mat4 RotateX(float angle) {
+inline mat4 RotateX(float angle)
+{
     float rad = angle * M_PI / 180.0f;
     float c = cosf(rad), s = sinf(rad);
     mat4 m;
@@ -109,7 +119,8 @@ inline mat4 RotateX(float angle) {
     return m;
 }
 
-inline mat4 RotateY(float angle) {
+inline mat4 RotateY(float angle)
+{
     float rad = angle * M_PI / 180.0f;
     float c = cosf(rad), s = sinf(rad);
     mat4 m;
@@ -118,7 +129,8 @@ inline mat4 RotateY(float angle) {
     return m;
 }
 
-inline mat4 RotateZ(float angle) {
+inline mat4 RotateZ(float angle)
+{
     float rad = angle * M_PI / 180.0f;
     float c = cosf(rad), s = sinf(rad);
     mat4 m;
@@ -127,7 +139,8 @@ inline mat4 RotateZ(float angle) {
     return m;
 }
 
-inline mat4 LookAt(const vec3& eye, const vec3& at, const vec3& up) {
+inline mat4 LookAt(const vec3& eye, const vec3& at, const vec3& up)
+{
     vec3 f = normalize(at - eye);
     vec3 s = normalize(cross(f, up));
     vec3 u = cross(s, f);
@@ -139,7 +152,8 @@ inline mat4 LookAt(const vec3& eye, const vec3& at, const vec3& up) {
     return m;
 }
 
-inline mat4 Ortho(float left, float right, float bottom, float top, float zNear, float zFar) {
+inline mat4 Ortho(float left, float right, float bottom, float top, float zNear, float zFar)
+{
     mat4 m;
     memset(&m, 0, sizeof(m));
     m.d[0].x = 2.0f / (right - left);
@@ -152,7 +166,8 @@ inline mat4 Ortho(float left, float right, float bottom, float top, float zNear,
     return m;
 }
 
-inline mat4 Perspective(float fovy, float aspect, float zNear, float zFar) {
+inline mat4 Perspective(float fovy, float aspect, float zNear, float zFar)
+{
     float rad = fovy * M_PI / 180.0f;
     float f = 1.0f / tanf(rad / 2.0f);
     mat4 m;
@@ -168,10 +183,13 @@ inline mat4 Perspective(float fovy, float aspect, float zNear, float zFar) {
 // ------------------------------------------------
 // Shader loading
 // ------------------------------------------------
-inline GLuint InitShader(const char* vertPath, const char* fragPath) {
-    auto readFile = [](const char* path) -> std::string {
+inline GLuint InitShader(const char* vertPath, const char* fragPath)
+{
+    auto readFile = [](const char* path) -> std::string
+    {
         std::ifstream f(path);
-        if (!f.is_open()) {
+        if (!f.is_open())
+        {
             fprintf(stderr, "Cannot open shader: %s\n", path);
             return "";
         }
@@ -183,13 +201,15 @@ inline GLuint InitShader(const char* vertPath, const char* fragPath) {
     std::string vSrc = readFile(vertPath);
     std::string fSrc = readFile(fragPath);
 
-    auto compile = [](GLenum type, const char* src) -> GLuint {
+    auto compile = [](GLenum type, const char* src) -> GLuint
+    {
         GLuint s = glCreateShader(type);
         glShaderSource(s, 1, &src, NULL);
         glCompileShader(s);
         GLint ok;
         glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
-        if (!ok) {
+        if (!ok)
+        {
             char log[512];
             glGetShaderInfoLog(s, 512, NULL, log);
             fprintf(stderr, "Shader compile error: %s\n", log);
@@ -207,7 +227,8 @@ inline GLuint InitShader(const char* vertPath, const char* fragPath) {
 
     GLint ok;
     glGetProgramiv(prog, GL_LINK_STATUS, &ok);
-    if (!ok) {
+    if (!ok)
+    {
         char log[512];
         glGetProgramInfoLog(prog, 512, NULL, log);
         fprintf(stderr, "Shader link error: %s\n", log);
