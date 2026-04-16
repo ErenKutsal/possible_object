@@ -179,7 +179,8 @@ void polygon_init()
 {
     polygon_create_solid_segment(num_segments, radius, 0.15f * log(num_segments));
 
-    program = InitShader("../shaders/vshader.glsl", "../shaders/fshader.glsl");
+    //program = InitShader("../shaders/vshader.glsl", "../shaders/fshader.glsl");
+    program = InitShader(SHADER_DIR "vshader.glsl", SHADER_DIR "fshader.glsl");
     glUseProgram(program);
 
     GLuint loc = glGetAttribLocation(program, "vPosition");

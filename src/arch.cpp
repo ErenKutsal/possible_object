@@ -168,7 +168,7 @@ void arch_init()
     glBindBuffer(GL_ARRAY_BUFFER, arch_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(arch_positions), arch_positions, GL_STATIC_DRAW);
 
-    arch_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
+    arch_shaderProgram = InitShader(SHADER_DIR "vshader_simple.glsl", SHADER_DIR "fshader_simple.glsl");
     glUseProgram(arch_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(arch_shaderProgram, "vPosition");

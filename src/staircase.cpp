@@ -173,7 +173,7 @@ void stair_init()
     glBindBuffer(GL_ARRAY_BUFFER, stair_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(stair_positions), stair_positions, GL_STATIC_DRAW);
 
-    stair_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
+    stair_shaderProgram = InitShader(SHADER_DIR "vshader_simple.glsl", SHADER_DIR "fshader_simple.glsl");
     glUseProgram(stair_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(stair_shaderProgram, "vPosition");

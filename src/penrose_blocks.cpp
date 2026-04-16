@@ -191,7 +191,7 @@ void penrose_block_init()
     glBindBuffer(GL_ARRAY_BUFFER, penrose_block_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(penrose_block_positions), penrose_block_positions, GL_STATIC_DRAW);
 
-    penrose_block_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
+    penrose_block_shaderProgram = InitShader(SHADER_DIR "vshader_simple.glsl", SHADER_DIR "fshader_simple.glsl");
     glUseProgram(penrose_block_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(penrose_block_shaderProgram, "vPosition");

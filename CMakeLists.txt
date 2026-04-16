@@ -9,12 +9,18 @@ if(APPLE)
     add_compile_definitions(GL_SILENCE_DEPRECATION)
 endif()
 
+if(WIN32)
+    add_compile_definitions(_USE_MATH_DEFINES)
+endif()
+
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 
 if(NOT APPLE)
     find_package(GLEW REQUIRED)
 endif()
+
+add_compile_definitions(SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders/")
 
 include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/shaders)
 

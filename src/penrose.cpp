@@ -157,7 +157,7 @@ void penrose_init()
     glBindBuffer(GL_ARRAY_BUFFER, penrose_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions), vertexPositions, GL_STATIC_DRAW);
 
-    penrose_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
+    penrose_shaderProgram = InitShader(SHADER_DIR "vshader_simple.glsl", SHADER_DIR "fshader_simple.glsl");
     glUseProgram(penrose_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(penrose_shaderProgram, "vPosition");
@@ -199,7 +199,7 @@ void penrose_display()
     mat4 view = LookAt(eye, at, up);
 
     // perspective
-    mat4 projection = Perspective(50.0, 550.0 / 500.0, 0.1, 10.0);
+    mat4 projection = Perspective(30.0, 550.0/500.0, 0.1, 10.0);
 
     glUniformMatrix4fv(penrose_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(penrose_projectionPos, 1, GL_FALSE, &projection.d[0].x);
@@ -207,8 +207,8 @@ void penrose_display()
     // rotation
     mat4 sceneRotation = RotateY(penrose_angleY) * RotateX(penrose_angleX) * RotateZ(penrose_angleZ);
 
-    float length = 1.10;
-    float thickness = 0.22;
+    float length = 1.0;
+    float thickness = 0.2;
 
     float cx = length * 0.5f;
     float cy = length * 0.5f;

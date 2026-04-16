@@ -126,7 +126,7 @@ void cube_init()
     glBindBuffer(GL_ARRAY_BUFFER, cube_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, cube_barCount * cube_vertsPerBar * sizeof(vec4), cube_positions, GL_STATIC_DRAW);
 
-    cube_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
+    cube_shaderProgram = InitShader(SHADER_DIR "vshader_simple.glsl", SHADER_DIR "fshader_simple.glsl");
     glUseProgram(cube_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(cube_shaderProgram, "vPosition");
