@@ -3,6 +3,8 @@
 #include "neckercube.h"
 #include "penrose.h"
 
+int screen_w, screen_h;  // Screen Attributes
+
 const int NUM_OBJECTS = 5;
 const char* object_names[NUM_OBJECTS] = {"Impossible Polygon", "Penrose Triangle", "Impossible Cube", "Penrose Blocks",
                                          "Impossible Arch"};
@@ -125,6 +127,8 @@ int main()
         glfwTerminate();
         exit(EXIT_FAILURE);
     }
+
+    glfwGetFramebufferSize(window, &screen_w, &screen_h);
 
     glfwMakeContextCurrent(window);
 

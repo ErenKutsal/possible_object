@@ -9,6 +9,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #ifdef __APPLE__
 #include <OpenGL/gl3.h>
@@ -17,6 +18,10 @@
 #endif
 
 #include <GLFW/glfw3.h>
+
+// Screen Attributes
+extern int screen_w;
+extern int screen_h;
 
 // ------------------------------------------------
 // Math types matching the project's usage:
@@ -86,6 +91,14 @@ struct mat4
                 R[c * 4 + row] = sum;
             }
         return r;
+    }
+    // Matrix * Vector multiplication
+    vec4 operator*(const vec4& v) const
+    {
+        return vec4(d[0].x * v.x + d[1].x * v.y + d[2].x * v.z + d[3].x * v.w,
+                    d[0].y * v.x + d[1].y * v.y + d[2].y * v.z + d[3].y * v.w,
+                    d[0].z * v.x + d[1].z * v.y + d[2].z * v.z + d[3].z * v.w,
+                    d[0].w * v.x + d[1].w * v.y + d[2].w * v.z + d[3].w * v.w);
     }
 };
 
