@@ -1,3 +1,4 @@
+#include "background.h"
 #include "includes.h"
 
 GLuint cube_shaderProgram;
@@ -22,6 +23,15 @@ float cube_angleZ = -45.0f;
 bool cube_isDragging = false;
 double cube_mouseX = 0.0;
 double cube_mouseY = 0.0;
+
+// Camera globals
+float camera_radius_cube = 5.0f;
+float camera_theta_cube = M_PI / 2.0f;
+float camera_phi_cube = M_PI / 2.0f;
+
+bool is_dragging_cube = false;
+double last_mouse_x_cube = 0.0;
+double last_mouse_y_cube = 0.0;
 
 vec4 cubeBlue() { return vec4(0.67f, 0.75f, 0.92f, 1.0f); }
 vec4 cubeBlueDark() { return vec4(0.50f, 0.56f, 0.75f, 1.0f); }
@@ -79,20 +89,50 @@ void cube_buildScene()
 
 void cube_mouseButtonCallback(GLFWwindow* window, int button, int action, int)
 {
+    /*
     if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
         cube_isDragging = (action == GLFW_PRESS);
         if (cube_isDragging) glfwGetCursorPos(window, &cube_mouseX, &cube_mouseY);
     }
+    */
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        if (action == GLFW_PRESS)
+        {
+            is_dragging_cube = true;
+            glfwGetCursorPos(window, &last_mouse_x_cube, &last_mouse_y_cube);
+        }
+        else if (action == GLFW_RELEASE)
+        {
+            is_dragging_cube = false;
+        }
+    }
 }
 
 void cube_cursorPosCallback(GLFWwindow*, double x, double y)
 {
+    /*
     if (!cube_isDragging) return;
     cube_angleY += (float)(x - cube_mouseX) * 0.4f;
     cube_angleX += (float)(y - cube_mouseY) * 0.4f;
     cube_mouseX = x;
     cube_mouseY = y;
+    */
+    if (is_dragging_cube)
+    {
+        double deltaX = x - last_mouse_x_cube;
+        double deltaY = y - last_mouse_y_cube;
+
+        last_mouse_x_cube = x;
+        last_mouse_y_cube = y;
+
+        camera_theta_cube -= deltaX * 0.01f;
+        camera_phi_cube += deltaY * 0.01f;
+
+        if (camera_phi_cube < 0.01f) camera_phi_cube = 0.01f;
+        if (camera_phi_cube > M_PI - 0.01f) camera_phi_cube = M_PI - 0.01f;
+    }
 }
 
 void cube_scrollCallback(GLFWwindow*, double, double yoffset) { cube_angleZ += (float)yoffset * 2.0f; }
@@ -126,7 +166,7 @@ void cube_init()
     glBindBuffer(GL_ARRAY_BUFFER, cube_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, cube_barCount * cube_vertsPerBar * sizeof(vec4), cube_positions, GL_STATIC_DRAW);
 
-    cube_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
+    cube_shaderProgram = InitShader("../shaders/vshader_impossible.glsl", "../shaders/fshader_impossible.glsl");
     glUseProgram(cube_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(cube_shaderProgram, "vPosition");
@@ -156,18 +196,43 @@ static void cube_drawBar(int barIdx, mat4 m, GLuint modelLoc)
 
 void cube_display()
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    bg_begin_scene();
+
+    float eye_x = camera_radius_cube * sinf(camera_phi_cube) * cosf(camera_theta_cube);
+    float eye_y = camera_radius_cube * cosf(camera_phi_cube);
+    float eye_z = camera_radius_cube * sinf(camera_phi_cube) * sinf(camera_theta_cube);
+
+    vec3 eye(eye_x, eye_y, eye_z);
+    vec3 at(0.0f, 0.0f, 0.0f);
+    vec3 up(0.0f, 1.0f, 0.0f);
+
+    vec3 cam_forward = normalize(at - eye);
+    vec3 cam_right = normalize(cross(cam_forward, up));
+    vec3 cam_up = cross(cam_right, cam_forward);
+    float current_time = glfwGetTime();
+
+    bg_draw_tunnel(eye, cam_right, cam_up, cam_forward, current_time);
+
     glUseProgram(cube_shaderProgram);
     glBindVertexArray(cube_vao);
 
-    vec3 eye(3.0f, 3.0f, 3.0f);
-    vec3 at(0.0f, 0.0f, 0.0f);
-    vec3 up(0.0f, 1.0f, 0.0f);
     mat4 view = LookAt(eye, at, up);
-    mat4 projection = Perspective(30.0f, 1.0f, 0.1f, 50.0f);
+    // Assuming your window is 550x500. Change these numbers to match your actual window size!
+    float aspect = screen_h / screen_w;
+    mat4 projection = Perspective(30.0f, aspect, 0.1f, 50.0f);
+    // mat4 projection = Perspective(30.0f, 1.0f, 0.1f, 50.0f);
 
     glUniformMatrix4fv(cube_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(cube_projectionPos, 1, GL_FALSE, &projection.d[0].x);
+
+    // --- 4 new uniforms, looked up inline, no new globals ---
+    GLuint p = cube_shaderProgram;
+    vec3 lightPos(3.0f, 5.0f, 3.0f);
+    glUniform3fv(glGetUniformLocation(p, "uLightPos"), 1, &lightPos.x);
+    glUniform3fv(glGetUniformLocation(p, "uEyePos"), 1, &eye.x);
+    glUniform1f(glGetUniformLocation(p, "uTime"), glfwGetTime());
+    // uObjHeight = total world-space height of cube = S + T
+    glUniform1f(glGetUniformLocation(p, "uObjHeight"), 0.8f + 0.14f);
 
     mat4 sceneRot = RotateY(cube_angleY) * RotateX(cube_angleX) * RotateZ(cube_angleZ);
 
@@ -194,6 +259,8 @@ void cube_display()
     cube_drawBar(idx++, sceneRot * Translate(h, 0, h) * Scale(T, S + T, T), cube_modelPos);
     cube_drawBar(idx++, sceneRot * Translate(h, 0, -h) * Scale(T, S + T, T), cube_modelPos);
     cube_drawBar(idx++, sceneRot * Translate(-h, 0, h) * Scale(T, S + T, T), cube_modelPos);
+
+    bg_end_scene();
 
     glFinish();
 }

@@ -1,3 +1,4 @@
+#include "background.h"
 #include "impossible_polygon.h"
 #include "includes.h"
 #include "neckercube.h"
@@ -147,6 +148,9 @@ int main()
     cube_init();
     penrose_block_init();
     arch_init();
+
+    // Initialize backgrounds
+    bg_init_shared(window);
 
     glClearColor(0.75f, 0.78f, 0.80f, 1.0f);  // light teal background
     glEnable(GL_DEPTH_TEST);

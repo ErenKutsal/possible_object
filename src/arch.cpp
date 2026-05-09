@@ -1,3 +1,4 @@
+#include "background.h"
 #include "includes.h"
 
 GLuint arch_shaderProgram;
@@ -70,41 +71,35 @@ vec4 arch_faceColor(int faceIndex)
 // ------------------------------------------------
 void arch_buildCube(vec4* pos, vec4* col)
 {
-    vec4 v[8] = {
-        vec4(-0.5f, -0.5f, -0.5f, 1.0f),
-        vec4(-0.5f, -0.5f,  0.5f, 1.0f),
-        vec4(-0.5f,  0.5f, -0.5f, 1.0f),
-        vec4(-0.5f,  0.5f,  0.5f, 1.0f),
-        vec4( 0.5f, -0.5f, -0.5f, 1.0f),
-        vec4( 0.5f, -0.5f,  0.5f, 1.0f),
-        vec4( 0.5f,  0.5f, -0.5f, 1.0f),
-        vec4( 0.5f,  0.5f,  0.5f, 1.0f)
-    };
+    vec4 v[8] = {vec4(-0.5f, -0.5f, -0.5f, 1.0f), vec4(-0.5f, -0.5f, 0.5f, 1.0f), vec4(-0.5f, 0.5f, -0.5f, 1.0f),
+                 vec4(-0.5f, 0.5f, 0.5f, 1.0f),   vec4(0.5f, -0.5f, -0.5f, 1.0f), vec4(0.5f, -0.5f, 0.5f, 1.0f),
+                 vec4(0.5f, 0.5f, -0.5f, 1.0f),   vec4(0.5f, 0.5f, 0.5f, 1.0f)};
 
-    int faces[6][4] = {
-        {0, 1, 3, 2}, {6, 7, 5, 4},
-        {2, 3, 7, 6}, {4, 5, 1, 0},
-        {7, 3, 1, 5}, {2, 6, 4, 0}
-    };
+    int faces[6][4] = {{0, 1, 3, 2}, {6, 7, 5, 4}, {2, 3, 7, 6}, {4, 5, 1, 0}, {7, 3, 1, 5}, {2, 6, 4, 0}};
 
     int idx = 0;
     for (int i = 0; i < 6; i++)
     {
         vec4 c = arch_faceColor(i);
-        pos[idx] = v[faces[i][0]]; col[idx++] = c;
-        pos[idx] = v[faces[i][1]]; col[idx++] = c;
-        pos[idx] = v[faces[i][2]]; col[idx++] = c;
-        pos[idx] = v[faces[i][0]]; col[idx++] = c;
-        pos[idx] = v[faces[i][2]]; col[idx++] = c;
-        pos[idx] = v[faces[i][3]]; col[idx++] = c;
+        pos[idx] = v[faces[i][0]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][1]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][2]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][0]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][2]];
+        col[idx++] = c;
+        pos[idx] = v[faces[i][3]];
+        col[idx++] = c;
     }
 }
 
 void arch_buildScene()
 {
     for (int i = 0; i < arch_barCount; i++)
-        arch_buildCube(arch_positions + i * arch_vertsPerBar,
-                       arch_colors    + i * arch_vertsPerBar);
+        arch_buildCube(arch_positions + i * arch_vertsPerBar, arch_colors + i * arch_vertsPerBar);
 }
 
 // ------------------------------------------------
@@ -115,8 +110,7 @@ void arch_mouseButtonCallback(GLFWwindow* window, int button, int action, int)
     if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
         arch_isDragging = (action == GLFW_PRESS);
-        if (arch_isDragging)
-            glfwGetCursorPos(window, &arch_mouseX, &arch_mouseY);
+        if (arch_isDragging) glfwGetCursorPos(window, &arch_mouseX, &arch_mouseY);
     }
 }
 
@@ -129,19 +123,16 @@ void arch_cursorPosCallback(GLFWwindow*, double x, double y)
     arch_mouseY = y;
 }
 
-void arch_scrollCallback(GLFWwindow*, double, double yoffset)
-{
-    arch_angleZ += (float)yoffset * 2.0f;
-}
+void arch_scrollCallback(GLFWwindow*, double, double yoffset) { arch_angleZ += (float)yoffset * 2.0f; }
 
 void arch_keyCallback(GLFWwindow* win, int key, int, int action, int)
 {
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
-        if (key == GLFW_KEY_LEFT)  arch_angleY -= 3.0f;
+        if (key == GLFW_KEY_LEFT) arch_angleY -= 3.0f;
         if (key == GLFW_KEY_RIGHT) arch_angleY += 3.0f;
-        if (key == GLFW_KEY_UP)    arch_angleX -= 3.0f;
-        if (key == GLFW_KEY_DOWN)  arch_angleX += 3.0f;
+        if (key == GLFW_KEY_UP) arch_angleX -= 3.0f;
+        if (key == GLFW_KEY_DOWN) arch_angleX += 3.0f;
 
         if (key == GLFW_KEY_R)
         {
@@ -149,8 +140,7 @@ void arch_keyCallback(GLFWwindow* win, int key, int, int action, int)
             arch_angleY = 0.0f;
             arch_angleZ = -45.0f;
         }
-        if (key == GLFW_KEY_ESCAPE)
-            glfwSetWindowShouldClose(win, GL_TRUE);
+        if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(win, GL_TRUE);
     }
 }
 
@@ -168,7 +158,7 @@ void arch_init()
     glBindBuffer(GL_ARRAY_BUFFER, arch_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(arch_positions), arch_positions, GL_STATIC_DRAW);
 
-    arch_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
+    arch_shaderProgram = InitShader("../shaders/vshader_impossible.glsl", "../shaders/fshader_impossible.glsl");
     glUseProgram(arch_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(arch_shaderProgram, "vPosition");
@@ -186,9 +176,9 @@ void arch_init()
     glEnable(GL_DEPTH_TEST);
     glClearColor(0.72f, 0.75f, 0.72f, 1.0f);
 
-    arch_modelPos      = glGetUniformLocation(arch_shaderProgram, "model");
-    arch_viewPos        = glGetUniformLocation(arch_shaderProgram, "view");
-    arch_projectionPos  = glGetUniformLocation(arch_shaderProgram, "projection");
+    arch_modelPos = glGetUniformLocation(arch_shaderProgram, "model");
+    arch_viewPos = glGetUniformLocation(arch_shaderProgram, "view");
+    arch_projectionPos = glGetUniformLocation(arch_shaderProgram, "projection");
 }
 
 // ------------------------------------------------
@@ -215,81 +205,92 @@ void arch_init()
 // ------------------------------------------------
 void arch_display()
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    bg_begin_scene();
+
+    // 1. Calculate the model's rotation FIRST
+    mat4 sceneRot = RotateY(arch_angleY) * RotateX(arch_angleX) * RotateZ(arch_angleZ);
+
+    // 2. Calculate the inverse rotation (reverse the matrix order and negate the angles)
+    mat4 invRot = RotateZ(-arch_angleZ) * RotateX(-arch_angleX) * RotateY(-arch_angleY);
+
+    vec3 global_eye(3.0f, 3.0f, 3.0f);
+    vec3 global_at(0.0f, 0.0f, 0.5f);
+    vec3 global_up(0.0f, 1.0f, 0.0f);
+
+    // 4. RELATIVITY FIX: Move the raymarching camera into the spinning cube's local space!
+    vec4 local_eye4 = invRot * vec4(global_eye.x, global_eye.y, global_eye.z, 1.0f);
+    vec4 local_at4 = invRot * vec4(global_at.x, global_at.y, global_at.z, 1.0f);
+    vec4 local_up4 = invRot * vec4(global_up.x, global_up.y, global_up.z, 0.0f);  // w=0 because it is a direction
+
+    vec3 local_eye = vec3(local_eye4.x, local_eye4.y, local_eye4.z);
+    vec3 local_at = vec3(local_at4.x, local_at4.y, local_at4.z);
+    vec3 local_up = normalize(vec3(local_up4.x, local_up4.y, local_up4.z));
+
+    // 5. Calculate the ray vectors using our new localized background camera
+    vec3 cam_forward = normalize(local_at - local_eye);
+    vec3 cam_right = normalize(cross(cam_forward, local_up));
+    vec3 cam_up = cross(cam_right, cam_forward);
+    float current_time = glfwGetTime();
+
+    bg_draw_gyroid(local_eye, cam_right, cam_up, cam_forward, current_time);
+
     glUseProgram(arch_shaderProgram);
     glBindVertexArray(arch_vao);
 
-    vec3 eye(3.0f, 3.0f, 3.0f);
-    vec3 at(0.0f, 0.0f, 0.5f);
-    vec3 up(0.0f, 1.0f, 0.0f);
-    mat4 view = LookAt(eye, at, up);
-    float aspect = 550.0f / 500.0f;
+    mat4 view = LookAt(global_eye, global_at, global_up);
+    float aspect = screen_w / screen_h;
     float orthoS = 2.0f;
     mat4 projection = Ortho(-orthoS * aspect, orthoS * aspect, -orthoS, orthoS, 0.1f, 20.0f);
 
     glUniformMatrix4fv(arch_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(arch_projectionPos, 1, GL_FALSE, &projection.d[0].x);
 
-    mat4 sceneRot = RotateY(arch_angleY)
-                  * RotateX(arch_angleX)
-                  * RotateZ(arch_angleZ);
-
     float thickness = 0.2f;
     float width_A = 1.0f;
     float width_B = 1.0f;
-    float height  = 2.0f;
+    float height = 2.0f;
 
     float t = thickness;
 
     // Bar 1: along +X (P1 to P2)
     // Extend both X-ends by t/2 so corners align with perpendicular bars
-    mat4 model1 = sceneRot
-                 * Translate(0.0f, -1.0f, 0.0f)
-                 * Scale(width_A + t, t, t);
+    mat4 model1 = sceneRot * Translate(0.0f, -1.0f, 0.0f) * Scale(width_A + t, t, t);
     glUniformMatrix4fv(arch_modelPos, 1, GL_FALSE, &model1.d[0].x);
     glDrawArrays(GL_TRIANGLES, 0, arch_vertsPerBar);
 
     // Bar 2: along +Y (P2 to P3)
     // Extend both Y-ends by t/2 so corners align with perpendicular bars
-    mat4 model2 = sceneRot
-                 * Translate(0.5f, -0.5f, 0.0f)
-                 * Scale(t, width_B + t, t);
+    mat4 model2 = sceneRot * Translate(0.5f, -0.5f, 0.0f) * Scale(t, width_B + t, t);
     glUniformMatrix4fv(arch_modelPos, 1, GL_FALSE, &model2.d[0].x);
     glDrawArrays(GL_TRIANGLES, arch_vertsPerBar, arch_vertsPerBar);
 
     // Bar 3: along +Z (P3 to P4)
     // Extend both Z-ends by t/2 so corners align with perpendicular bars
-    mat4 model3 = sceneRot
-                 * Translate(0.5f, 0.0f, 0.5f)
-                 * Scale(t, t, (height - width_B) + t);
+    mat4 model3 = sceneRot * Translate(0.5f, 0.0f, 0.5f) * Scale(t, t, (height - width_B) + t);
     glUniformMatrix4fv(arch_modelPos, 1, GL_FALSE, &model3.d[0].x);
     glDrawArrays(GL_TRIANGLES, 2 * arch_vertsPerBar, arch_vertsPerBar);
 
     // Bar 4: along -X (P4 to P5)
     // Extend both X-ends by t/2 so corners align with perpendicular bars
-    mat4 model4 = sceneRot
-                 * Translate(-0.5f, 0.0f, 1.0f)
-                 * Scale((width_A + width_B) + t, t, t);
+    mat4 model4 = sceneRot * Translate(-0.5f, 0.0f, 1.0f) * Scale((width_A + width_B) + t, t, t);
     glUniformMatrix4fv(arch_modelPos, 1, GL_FALSE, &model4.d[0].x);
     glDrawArrays(GL_TRIANGLES, 3 * arch_vertsPerBar, arch_vertsPerBar);
 
     // Bar 5a: illusion top half (P0 to P1)
     // Extend only the P1 (connecting) end by t/2; P0 is a free end
     // New Z range: -t/2 to 1.0, length = 1.0 + t/2, center shifts down
-    mat4 model5a = sceneRot
-                  * Translate(-0.5f, -1.0f, 0.5f - t * 0.25f)
-                  * Scale(t, t, 1.0f + t * 0.5f);
+    mat4 model5a = sceneRot * Translate(-0.5f, -1.0f, 0.5f - t * 0.25f) * Scale(t, t, 1.0f + t * 0.5f);
     glUniformMatrix4fv(arch_modelPos, 1, GL_FALSE, &model5a.d[0].x);
     glDrawArrays(GL_TRIANGLES, 4 * arch_vertsPerBar, arch_vertsPerBar);
 
     // Bar 5b: illusion bottom half (P5 to P6)
     // Extend only the P5 (connecting) end by t/2; P6 is a free end
     // New Z range: 0.0 to 1.0 + t/2, length = 1.0 + t/2, center shifts up
-    mat4 model5b = sceneRot
-                  * Translate(-1.5f, 0.0f, 0.5f + t * 0.25f)
-                  * Scale(t, t, 1.0f + t * 0.5f);
+    mat4 model5b = sceneRot * Translate(-1.5f, 0.0f, 0.5f + t * 0.25f) * Scale(t, t, 1.0f + t * 0.5f);
     glUniformMatrix4fv(arch_modelPos, 1, GL_FALSE, &model5b.d[0].x);
     glDrawArrays(GL_TRIANGLES, 4 * arch_vertsPerBar, arch_vertsPerBar);
+
+    bg_end_scene();
 
     glFinish();
 }

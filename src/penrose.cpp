@@ -1,4 +1,5 @@
 
+#include "background.h"
 #include "includes.h"
 
 GLuint penrose_shaderProgram;
@@ -187,25 +188,51 @@ void penrose_init()
 // ------------------------------------------------
 void penrose_display()
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // Replaces glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    bg_begin_scene();
 
+    // 1. Calculate the model's rotation FIRST
+    mat4 sceneRotation = RotateY(penrose_angleY) * RotateX(penrose_angleX) * RotateZ(penrose_angleZ);
+
+    // 2. Calculate the inverse rotation for the background camera (Relativity Trick)
+    mat4 invRot = RotateZ(-penrose_angleZ) * RotateX(-penrose_angleX) * RotateY(-penrose_angleY);
+
+    // 3. The original static global camera for the Penrose illusion
+    vec3 global_eye(2.5, 2.5, 2.5);
+    vec3 global_at(0.0, 0.0, 0.0);
+    vec3 global_up(0, 1, 0);
+
+    // 4. Move the raymarching camera into the spinning model's local space
+    vec4 local_eye4 = invRot * vec4(global_eye.x, global_eye.y, global_eye.z, 1.0f);
+    vec4 local_at4 = invRot * vec4(global_at.x, global_at.y, global_at.z, 1.0f);
+    vec4 local_up4 = invRot * vec4(global_up.x, global_up.y, global_up.z, 0.0f);
+
+    vec3 local_eye = vec3(local_eye4.x, local_eye4.y, local_eye4.z);
+    vec3 local_at = vec3(local_at4.x, local_at4.y, local_at4.z);
+    vec3 local_up = normalize(vec3(local_up4.x, local_up4.y, local_up4.z));
+
+    // 5. Calculate the ray vectors using our localized background camera
+    vec3 cam_forward = normalize(local_at - local_eye);
+    vec3 cam_right = normalize(cross(cam_forward, local_up));
+    vec3 cam_up = cross(cam_right, cam_forward);
+    float current_time = glfwGetTime();
+
+    // 6. Draw the Tesseract Lattice background behind the scene
+    bg_draw_lattice(local_eye, cam_right, cam_up, cam_forward, 2.0f, current_time);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // ------------------------------------------------
+    // Setup and draw the Penrose Geometry
+    // ------------------------------------------------
     glUseProgram(penrose_shaderProgram);
     glBindVertexArray(penrose_vao);
 
-    // camera
-    vec3 eye(2.5, 2.5, 2.5);
-    vec3 at(0.0, 0.0, 0.0);  // <--- CHANGED: Was (0.75, 0.75, 0.35)
-    vec3 up(0, 1, 0);
-    mat4 view = LookAt(eye, at, up);
-
-    // perspective
+    // Use the static global camera for the objects to preserve the optical illusion
+    mat4 view = LookAt(global_eye, global_at, global_up);
     mat4 projection = Perspective(50.0, 550.0 / 500.0, 0.1, 10.0);
 
     glUniformMatrix4fv(penrose_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(penrose_projectionPos, 1, GL_FALSE, &projection.d[0].x);
-
-    // rotation
-    mat4 sceneRotation = RotateY(penrose_angleY) * RotateX(penrose_angleX) * RotateZ(penrose_angleZ);
 
     float length = 1.10;
     float thickness = 0.22;
@@ -232,6 +259,9 @@ void penrose_display()
                   Scale(length, thickness, thickness);
     glUniformMatrix4fv(penrose_modelPos, 1, GL_FALSE, &model3.d[0].x);
     glDrawArrays(GL_TRIANGLES, 2 * verticesPerCuboid, verticesPerCuboid);
+
+    // Resolves any post-processing / FBOs attached to the background system
+    bg_end_scene();
 
     glFinish();
 }

@@ -1,3 +1,4 @@
+#include "background.h"
 #include "includes.h"
 
 int num_segments = 3;
@@ -45,116 +46,9 @@ float spin_momentum = 0.0f;
 float global_spin_angle = 0.0f;
 float last_frame_time = 0.0f;
 
-// FBO handles
-GLuint fbo_scene, tex_scene;    // Pass 1: full scene
-GLuint fbo_bright, tex_bright;  // Pass 2: bright regions only
-GLuint fbo_blur_h, tex_blur_h;  // Pass 3: horizontal blur
-GLuint fbo_blur_v, tex_blur_v;  // Pass 4: vertical blur
-
-GLuint quad_vao, quad_vbo;  // fullscreen triangle
-GLuint bloom_program;       // combine shader
-GLuint bright_program;      // brightness extract shader
-GLuint blur_program;        // gaussian blur shader
-
-GLint blur_horizontal_loc;  // tells blur shader which direction
-GLint bloom_scene_loc, bloom_blur_loc;
-// int screen_w, screen_h;  // match your window size
-
-// Background globals
-GLuint bg_program;
-GLint bg_eye_loc, bg_right_loc, bg_up_loc, bg_forward_loc;
-GLint bg_view_size_loc, bg_time_loc, bg_floor_y_loc;
-
 // =============================================
 // Impossible Polygon geometry
 // =============================================
-
-void init_background()
-{
-    bg_program = InitShader("../shaders/vshader_quad.glsl", "../shaders/fshader_bg.glsl");
-    bg_eye_loc = glGetUniformLocation(bg_program, "uEyePos");
-    bg_right_loc = glGetUniformLocation(bg_program, "uCamRight");
-    bg_up_loc = glGetUniformLocation(bg_program, "uCamUp");
-    bg_forward_loc = glGetUniformLocation(bg_program, "uCamForward");
-    bg_view_size_loc = glGetUniformLocation(bg_program, "uViewSize");
-    bg_time_loc = glGetUniformLocation(bg_program, "uTime");
-    bg_floor_y_loc = glGetUniformLocation(bg_program, "uFloorY");
-}
-
-void draw_background(vec3 eye, vec3 right, vec3 up, vec3 forward, float view_size, float time)
-{
-    glUseProgram(bg_program);
-
-    // Upload all camera info the shader needs to reconstruct world rays
-    glUniform3fv(bg_eye_loc, 1, &eye.x);
-    glUniform3fv(bg_right_loc, 1, &right.x);
-    glUniform3fv(bg_up_loc, 1, &up.x);
-    glUniform3fv(bg_forward_loc, 1, &forward.x);
-    glUniform1f(bg_view_size_loc, view_size);
-    glUniform1f(bg_time_loc, time);
-
-    // Floor sits just below the polygon
-    float floor_y = -radius - 0.3f;
-    glUniform1f(bg_floor_y_loc, floor_y);
-
-    glBindVertexArray(quad_vao);
-    glDisable(GL_DEPTH_TEST);  // background never occludes anything
-    glDepthMask(GL_FALSE);     // don't write to depth buffer
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
-
-    // Restore program for the bars
-    glUseProgram(program);
-}
-
-void create_fbo(GLuint& fbo, GLuint& tex, int w, int h)
-{
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, w, h, 0, GL_RGB, GL_FLOAT, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // Clamp so blur doesn't wrap around screen edges
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-
-    // Depth buffer (only scene FBO needs it, others are just 2D passes)
-    GLuint rbo;
-    glGenRenderbuffers(1, &rbo);
-    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, w, h);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) fprintf(stderr, "FBO incomplete!\n");
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-void init_quad()
-{
-    // Two triangles forming a -1..1 square, with UV coords
-    float quad[] = {
-        // pos (xy)   uv
-        -1, -1, 0, 0, 1, -1, 1, 0, 1, 1, 1, 1, -1, -1, 0, 0, 1, 1, 1, 1, -1, 1, 0, 1,
-    };
-    glGenVertexArrays(1, &quad_vao);
-    glBindVertexArray(quad_vao);
-    glGenBuffers(1, &quad_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, quad_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-    glBindVertexArray(0);
-}
 
 void generate_sphere()
 {
@@ -364,23 +258,6 @@ void polygon_init()
     glEnableVertexAttribArray(normal_loc);
     glVertexAttribPointer(normal_loc, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
 
-    create_fbo(fbo_scene, tex_scene, screen_w, screen_h);
-    create_fbo(fbo_bright, tex_bright, screen_w, screen_h);
-    create_fbo(fbo_blur_h, tex_blur_h, screen_w, screen_h);
-    create_fbo(fbo_blur_v, tex_blur_v, screen_w, screen_h);
-
-    init_quad();
-
-    bright_program = InitShader("../shaders/vshader_quad.glsl", "../shaders/fshader_bright.glsl");
-    blur_program = InitShader("../shaders/vshader_quad.glsl", "../shaders/fshader_blur.glsl");
-    bloom_program = InitShader("../shaders/vshader_quad.glsl", "../shaders/fshader_bloom.glsl");
-
-    blur_horizontal_loc = glGetUniformLocation(blur_program, "uHorizontal");
-    bloom_scene_loc = glGetUniformLocation(bloom_program, "uScene");
-    bloom_blur_loc = glGetUniformLocation(bloom_program, "uBloom");
-
-    init_background();
-
     glBindVertexArray(0);
 }
 
@@ -436,12 +313,7 @@ void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos)
 
 void polygon_display()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo_scene);
-    glViewport(0, 0, screen_w, screen_h);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // now clears fbo_scene
-    glEnable(GL_DEPTH_TEST);
-
-    glUseProgram(program);
+    bg_begin_scene();
 
     float eye_x = camera_radius * sinf(camera_phi) * cosf(camera_theta);
     float eye_y = camera_radius * cosf(camera_phi);
@@ -461,7 +333,8 @@ void polygon_display()
     vec3 cam_up = cross(cam_right, cam_forward);
     float current_time = glfwGetTime();
 
-    draw_background(eye, cam_right, cam_up, cam_forward, view_size, current_time);
+    bg_draw_escher(eye, cam_right, cam_up, cam_forward, view_size, current_time);
+    glUseProgram(program);
 
     // --- SPIN MATH ---
     if (last_frame_time == 0.0f) last_frame_time = current_time;  // Safety for frame 1
@@ -561,49 +434,7 @@ void polygon_display()
     // Ball
     display_ball(viewProj, global_spin, ball_local_pos);
 
-    // ---- PASS 2: extract bright pixels ----
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo_bright);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(bright_program);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex_scene);
-    glUniform1i(glGetUniformLocation(bright_program, "uScene"), 0);
-    glBindVertexArray(quad_vao);
-    glDisable(GL_DEPTH_TEST);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    // ---- PASS 3: horizontal blur ----
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo_blur_h);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(blur_program);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex_bright);
-    glUniform1i(glGetUniformLocation(blur_program, "uScene"), 0);
-    glUniform1i(blur_horizontal_loc, 1);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    // ---- PASS 4: vertical blur ----
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo_blur_v);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(blur_program);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex_blur_h);
-    glUniform1i(glGetUniformLocation(blur_program, "uScene"), 0);
-    glUniform1i(blur_horizontal_loc, 0);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    // ---- FINAL: combine scene + bloom onto screen ----
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, screen_w, screen_h);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(bloom_program);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex_scene);
-    glUniform1i(bloom_scene_loc, 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, tex_blur_v);
-    glUniform1i(bloom_blur_loc, 1);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    bg_end_scene();
 
     glFinish();
 }

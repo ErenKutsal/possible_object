@@ -8,70 +8,65 @@ uniform vec3  uCamUp;
 uniform vec3  uCamForward;
 uniform float uViewSize;
 uniform float uTime;
-uniform float uFloorY;
 
 out vec4 fragColor;
 
 void main() {
-    // Step 1 — reconstruct world-space ray for this pixel
-    // NDC coordinates: -1 to +1
+    // Step 1 — reconstruct world-space ray direction for this pixel
     vec2 ndc = fragUV * 2.0 - 1.0;
 
-    // In orthographic projection, every ray is parallel to cam_forward.
-    // The ray origin shifts laterally based on screen position.
-    vec3 ray_origin = uEyePos
-                    + ndc.x * uViewSize * uCamRight
-                    + ndc.y * uViewSize * uCamUp;
-    vec3 ray_dir    = uCamForward;
+    // For orthographic, all rays are parallel — the direction IS cam_forward.
+    // But we want a spherical background that reacts to camera rotation,
+    // so we construct a perspective-like direction from screen position.
+    // This gives the illusion of looking around inside a sphere.
+    vec3 ray_dir = normalize(uCamForward * 1.5
+                           + ndc.x * uCamRight
+                           + ndc.y * uCamUp);
 
-    // Step 2 — intersect ray with horizontal floor plane (y = uFloorY)
-    float denom = ray_dir.y;
-    if (abs(denom) < 0.001) {
-        // Ray is parallel to floor — just show deep background color
-        fragColor = vec4(0.04, 0.04, 0.10, 1.0);
-        return;
-    }
+    // Step 2 — convert ray direction to spherical coordinates
+    // theta: horizontal angle (longitude), 0 to 2PI
+    // phi:   vertical angle (latitude),    0 to PI
+    float theta = atan(ray_dir.z, ray_dir.x);   // -PI to PI
+    float phi   = acos(clamp(ray_dir.y, -1.0, 1.0)); // 0 to PI
 
-    float t   = (uFloorY - ray_origin.y) / denom;
-    vec3  hit = ray_origin + t * ray_dir;
+    // Normalize to 0..1 for tiling
+    float u = theta / (2.0 * 3.14159265);   // -0.5 to 0.5
+    float v = phi   /       3.14159265;     //  0.0 to 1.0
 
-    // Step 3 — Escher warp: distort grid coordinates with sine waves
-    // Two waves at different frequencies create an Escher-like ripple
-    float warp_speed = uTime * 0.4;
-    float wx = hit.x + 0.25 * sin(hit.z * 1.8 + warp_speed)
-                     + 0.12 * sin(hit.z * 3.7 - warp_speed * 1.3);
-    float wz = hit.z + 0.25 * sin(hit.x * 1.8 + warp_speed * 0.7)
-                     + 0.12 * sin(hit.x * 3.7 + warp_speed * 0.9);
+    // Step 3 — Escher warp: two sine waves at different frequencies
+    float warp_speed = uTime * 0.3;
+    float wu = u + 0.15 * sin(v * 5.5 + warp_speed)
+                 + 0.07 * sin(v * 11.0 - warp_speed * 1.3);
+    float wv = v + 0.15 * sin(u * 5.5 + warp_speed * 0.7)
+                 + 0.07 * sin(u * 11.0 + warp_speed * 0.9);
 
-    // Step 4 — checkerboard on warped coordinates
-    float check = mod(floor(wx * 2.0) + floor(wz * 2.0), 2.0);
+    // Step 4 — checkerboard on warped spherical coords
+    // Scale controls how many tiles wrap around the sphere
+    float scale = 6.0;
+    float check = mod(floor(wu * scale) + floor(wv * scale), 2.0);
 
-    // Step 5 — grid lines (thin bright lines at tile borders)
-    vec2  grid_uv   = fract(vec2(wx, wz) * 2.0);
-    float line_w    = 0.04;
+    // Step 5 — grid lines
+    vec2  grid_uv  = fract(vec2(wu, wv) * scale);
+    float line_w   = 0.04;
     float grid_line = step(1.0 - line_w, grid_uv.x)
                     + step(1.0 - line_w, grid_uv.y);
     grid_line = clamp(grid_line, 0.0, 1.0);
 
     // Step 6 — colors
-    // Dark squares: very dark blue-purple
-    // Light squares: slightly lighter, still dark overall so object pops
     vec3 col_dark  = vec3(0.04, 0.03, 0.09);
     vec3 col_light = vec3(0.10, 0.08, 0.20);
-    vec3 col_line  = vec3(0.35, 0.30, 0.60);  // purple-ish grid lines
+    vec3 col_line  = vec3(0.35, 0.30, 0.60);
 
     vec3 tile_color = mix(col_dark, col_light, check);
     vec3 color      = mix(tile_color, col_line, grid_line * 0.8);
 
-    // Step 7 — distance fade to background color so horizon doesn't pop
-    float dist      = length(hit - uEyePos);
-    float fade      = exp(-dist * 0.5);
-    vec3  bg_color  = vec3(0.03, 0.02, 0.07);  // deep space background
-    color           = mix(bg_color, color, fade * fade);
-
-    // Step 8 — only draw floor if ray hit it in front of camera (t > 0)
-    if (t < 0.0)
-        color = bg_color;
+    // Step 7 — subtle vertical gradient so top feels like "sky"
+    // and bottom feels like "depth" — reinforces the impossible space feel
+    float sky_fade = smoothstep(0.0, 0.5, 1.0 - v);
+    vec3  sky_tint = vec3(0.05, 0.03, 0.12);
+    vec3  bot_tint = vec3(0.02, 0.02, 0.06);
+    vec3  gradient = mix(bot_tint, sky_tint, sky_fade);
+    color = mix(color, gradient, 0.3);  // 0.3 = tint strength, keep subtle
 
     fragColor = vec4(color, 1.0);
 }

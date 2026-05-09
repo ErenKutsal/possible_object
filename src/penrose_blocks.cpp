@@ -1,3 +1,4 @@
+#include "background.h"
 #include "includes.h"
 
 GLuint penrose_block_shaderProgram;
@@ -49,6 +50,12 @@ float penrose_block_angleZ = -45.0f;
 bool penrose_block_isDragging = false;
 double penrose_block_mouseX = 0.0;
 double penrose_block_mouseY = 0.0;
+
+// Some new globals
+GLint pb_light_loc;
+GLint pb_eye_loc;
+GLint pb_time_loc;
+GLint pb_height_loc;
 
 // ------------------------------------------------
 // face colors per cube face
@@ -191,8 +198,20 @@ void penrose_block_init()
     glBindBuffer(GL_ARRAY_BUFFER, penrose_block_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(penrose_block_positions), penrose_block_positions, GL_STATIC_DRAW);
 
+    /*
     penrose_block_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
     glUseProgram(penrose_block_shaderProgram);
+    */
+
+    // Change the shader:
+    penrose_block_shaderProgram =
+        InitShader("../shaders/vshader_impossible.glsl", "../shaders/fshader_impossible.glsl");
+
+    // Add these uniform locations alongside the existing ones:
+    pb_light_loc = glGetUniformLocation(penrose_block_shaderProgram, "uLightPos");
+    pb_eye_loc = glGetUniformLocation(penrose_block_shaderProgram, "uEyePos");
+    pb_time_loc = glGetUniformLocation(penrose_block_shaderProgram, "uTime");
+    pb_height_loc = glGetUniformLocation(penrose_block_shaderProgram, "uObjHeight");
 
     GLuint posLoc = glGetAttribLocation(penrose_block_shaderProgram, "vPosition");
     glEnableVertexAttribArray(posLoc);
@@ -207,7 +226,7 @@ void penrose_block_init()
     glVertexAttribPointer(colLoc, 4, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
 
     glEnable(GL_DEPTH_TEST);
-    glClearColor(0.72f, 0.75f, 0.72f, 1.0f);
+    // glClearColor(0.72f, 0.75f, 0.72f, 1.0f); // No need if theres a bg
 
     penrose_block_modelPos = glGetUniformLocation(penrose_block_shaderProgram, "model");
     penrose_block_viewPos = glGetUniformLocation(penrose_block_shaderProgram, "view");
@@ -219,7 +238,9 @@ void penrose_block_init()
 // ------------------------------------------------
 void penrose_block_display()
 {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    bg_begin_scene();
+    bg_draw_julia(glfwGetTime());
+
     glUseProgram(penrose_block_shaderProgram);
     glBindVertexArray(penrose_block_vao);
 
@@ -235,6 +256,12 @@ void penrose_block_display()
     glUniformMatrix4fv(penrose_block_projectionPos, 1, GL_FALSE, &projection.d[0].x);
 
     mat4 sceneRot = RotateY(penrose_block_angleY) * RotateX(penrose_block_angleX) * RotateZ(penrose_block_angleZ);
+
+    vec3 lightPos(2.0f, 4.0f, 3.0f);
+    glUniform3fv(pb_light_loc, 1, &lightPos.x);
+    glUniform3fv(pb_eye_loc, 1, &eye.x);  // eye already computed for view matrix
+    glUniform1f(pb_time_loc, glfwGetTime());
+    glUniform1f(pb_height_loc, 1.0f);  // tune to match object's world height
 
     float size = 1.0f;
     float L = 0.25f * size;
@@ -274,6 +301,8 @@ void penrose_block_display()
         glUniformMatrix4fv(penrose_block_modelPos, 1, GL_FALSE, &model.d[0].x);
         glDrawArrays(GL_TRIANGLES, (i + 1) * penrose_block_vertsPerCube, penrose_block_vertsPerCube);
     }
+
+    bg_end_scene();
 
     glFinish();
 }
