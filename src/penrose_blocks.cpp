@@ -1,4 +1,3 @@
-#include "background.h"
 #include "includes.h"
 
 GLuint penrose_block_shaderProgram;
@@ -238,9 +237,6 @@ void penrose_block_init()
 // ------------------------------------------------
 void penrose_block_display()
 {
-    bg_begin_scene();
-    bg_draw_julia(glfwGetTime());
-
     glUseProgram(penrose_block_shaderProgram);
     glBindVertexArray(penrose_block_vao);
 
@@ -301,8 +297,6 @@ void penrose_block_display()
         glUniformMatrix4fv(penrose_block_modelPos, 1, GL_FALSE, &model.d[0].x);
         glDrawArrays(GL_TRIANGLES, (i + 1) * penrose_block_vertsPerCube, penrose_block_vertsPerCube);
     }
-
-    bg_end_scene();
 
     glFinish();
 }

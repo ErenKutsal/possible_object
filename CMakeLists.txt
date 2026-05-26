@@ -19,14 +19,13 @@ endif()
 include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/shaders)
 
 add_executable(
-                imposible.out 
-                src/main.cpp 
-                src/impossible_polygon.cpp 
-                src/penrose.cpp 
-                src/neckercube.cpp 
-                src/penrose_blocks.cpp 
+                imposible.out
+                src/main.cpp
+                src/impossible_polygon.cpp
+                src/penrose.cpp
+                src/neckercube.cpp
+                src/penrose_blocks.cpp
                 src/arch.cpp
-                src/background.cpp
                 )
 
 if(APPLE)

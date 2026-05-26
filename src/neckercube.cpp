@@ -1,4 +1,3 @@
-#include "background.h"
 #include "includes.h"
 
 GLuint cube_shaderProgram;
@@ -24,10 +23,13 @@ bool cube_isDragging = false;
 double cube_mouseX = 0.0;
 double cube_mouseY = 0.0;
 
-// Camera globals
+// Camera globals — defaults set to canonical isometric view
+// (θ_horizontal = 45°, θ_vertical ≈ 54.74°), so +X, +Y, +Z project to
+// three screen-space vectors that sum to zero. This is the projection
+// the Bridges paper requires for impossible figures.
 float camera_radius_cube = 5.0f;
-float camera_theta_cube = M_PI / 2.0f;
-float camera_phi_cube = M_PI / 2.0f;
+float camera_theta_cube = M_PI / 4.0f;             // 45° around Y
+float camera_phi_cube = 0.9553166f;                // arccos(1/sqrt(3)) ≈ 54.74°
 
 bool is_dragging_cube = false;
 double last_mouse_x_cube = 0.0;
@@ -196,8 +198,6 @@ static void cube_drawBar(int barIdx, mat4 m, GLuint modelLoc)
 
 void cube_display()
 {
-    bg_begin_scene();
-
     float eye_x = camera_radius_cube * sinf(camera_phi_cube) * cosf(camera_theta_cube);
     float eye_y = camera_radius_cube * cosf(camera_phi_cube);
     float eye_z = camera_radius_cube * sinf(camera_phi_cube) * sinf(camera_theta_cube);
@@ -206,21 +206,19 @@ void cube_display()
     vec3 at(0.0f, 0.0f, 0.0f);
     vec3 up(0.0f, 1.0f, 0.0f);
 
-    vec3 cam_forward = normalize(at - eye);
-    vec3 cam_right = normalize(cross(cam_forward, up));
-    vec3 cam_up = cross(cam_right, cam_forward);
-    float current_time = glfwGetTime();
-
-    bg_draw_tunnel(eye, cam_right, cam_up, cam_forward, current_time);
-
     glUseProgram(cube_shaderProgram);
     glBindVertexArray(cube_vao);
 
     mat4 view = LookAt(eye, at, up);
-    // Assuming your window is 550x500. Change these numbers to match your actual window size!
-    float aspect = screen_h / screen_w;
-    mat4 projection = Perspective(30.0f, aspect, 0.1f, 50.0f);
-    // mat4 projection = Perspective(30.0f, 1.0f, 0.1f, 50.0f);
+    // Orthographic projection: required for the impossible-cube
+    // illusion. Under parallel projection, +X, +Y, +Z project to
+    // three coplanar vectors that sum to zero, so the back corner
+    // (-h,-h,-h) and front corner (h,h,h) land on the SAME screen
+    // pixel — only depth distinguishes them. That is what lets us
+    // swap them below.
+    float aspect = (float)screen_w / (float)screen_h;
+    float orthoS = 1.2f;
+    mat4 projection = Ortho(-orthoS * aspect, orthoS * aspect, -orthoS, orthoS, 0.1f, 50.0f);
 
     glUniformMatrix4fv(cube_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(cube_projectionPos, 1, GL_FALSE, &projection.d[0].x);
@@ -240,27 +238,35 @@ void cube_display()
     float T = 0.14f;
     float h = S / 2.0f;
 
+    // Impossible-cube swap: translate the 3 bars meeting at the
+    // BACK corner (-h,-h,-h) toward the camera along (1,1,1)/sqrt(3)
+    // by an amount > cube diagonal. Under orthographic projection
+    // this changes only depth, not screen position — so those bars
+    // are drawn IN FRONT of the 3 front-corner bars at the center
+    // vertex, producing the Necker-reversed impossible reading.
+    float k = 1.6f;                                // shift magnitude
+    float s = k / 1.7320508f;                      // k / sqrt(3)
+    mat4 swap = Translate(s, s, s);                // along +(1,1,1)
+
     int idx = 0;
 
-    // Bottom face: 0=front-X, 1=back-X, 2=left-Z, 3=right-Z
-    cube_drawBar(idx++, sceneRot * Translate(0, -h, -h) * Scale(S + T, T, T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(0, -h, h) * Scale(S + T, T, T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(-h, -h, 0) * Scale(T, T, S + T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(h, -h, 0) * Scale(T, T, S + T), cube_modelPos);
+    // Bottom face: 0=back-X (back-corner bar), 1=front-X, 2=back-Z (back-corner bar), 3=front-Z
+    cube_drawBar(idx++, sceneRot * swap * Translate(0, -h, -h) * Scale(S + T, T, T), cube_modelPos);  // 0: back-corner
+    cube_drawBar(idx++, sceneRot *        Translate(0, -h,  h) * Scale(S + T, T, T), cube_modelPos);  // 1
+    cube_drawBar(idx++, sceneRot * swap * Translate(-h, -h, 0) * Scale(T, T, S + T), cube_modelPos);  // 2: back-corner
+    cube_drawBar(idx++, sceneRot *        Translate( h, -h, 0) * Scale(T, T, S + T), cube_modelPos);  // 3
 
-    // Top face: 4=front-X, 5=back-X, 6=left-Z, 7=right-Z
-    cube_drawBar(idx++, sceneRot * Translate(0, h, -h) * Scale(S + T, T, T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(0, h, h) * Scale(S + T, T, T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(-h, h, 0) * Scale(T, T, S + T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(h, h, 0) * Scale(T, T, S + T), cube_modelPos);
+    // Top face: 4=back-X, 5=front-X (front-corner), 6=back-Z, 7=front-Z (front-corner)
+    cube_drawBar(idx++, sceneRot *        Translate(0,  h, -h) * Scale(S + T, T, T), cube_modelPos);  // 4
+    cube_drawBar(idx++, sceneRot *        Translate(0,  h,  h) * Scale(S + T, T, T), cube_modelPos);  // 5: front-corner
+    cube_drawBar(idx++, sceneRot *        Translate(-h, h, 0) * Scale(T, T, S + T), cube_modelPos);   // 6
+    cube_drawBar(idx++, sceneRot *        Translate( h, h, 0) * Scale(T, T, S + T), cube_modelPos);   // 7: front-corner
 
-    // Verticals: 8=FL, 9=BR, 10=FR, 11=BL
-    cube_drawBar(idx++, sceneRot * Translate(-h, 0, -h) * Scale(T, S + T, T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(h, 0, h) * Scale(T, S + T, T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(h, 0, -h) * Scale(T, S + T, T), cube_modelPos);
-    cube_drawBar(idx++, sceneRot * Translate(-h, 0, h) * Scale(T, S + T, T), cube_modelPos);
-
-    bg_end_scene();
+    // Verticals: 8=back-corner, 9=front-corner, 10/11=mid
+    cube_drawBar(idx++, sceneRot * swap * Translate(-h, 0, -h) * Scale(T, S + T, T), cube_modelPos);  // 8: back-corner
+    cube_drawBar(idx++, sceneRot *        Translate( h, 0,  h) * Scale(T, S + T, T), cube_modelPos);  // 9: front-corner
+    cube_drawBar(idx++, sceneRot *        Translate( h, 0, -h) * Scale(T, S + T, T), cube_modelPos);  // 10
+    cube_drawBar(idx++, sceneRot *        Translate(-h, 0,  h) * Scale(T, S + T, T), cube_modelPos);  // 11
 
     glFinish();
 }

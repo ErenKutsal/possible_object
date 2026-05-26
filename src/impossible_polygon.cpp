@@ -1,4 +1,3 @@
-#include "background.h"
 #include "includes.h"
 
 int num_segments = 3;
@@ -189,7 +188,7 @@ void polygon_create_solid_segment(int n_segments, float radius, float thickness)
 
 void polygon_init()
 {
-    polygon_create_solid_segment(num_segments, radius, 0.15f * log(num_segments));
+    polygon_create_solid_segment(num_segments, radius, 0.22f * scale_factor);
 
     program = InitShader("../shaders/vshader_new.glsl", "../shaders/fshader_new.glsl");
     glUseProgram(program);
@@ -265,7 +264,7 @@ vec3 bar_top_position(int i)
 {
     float angle_rad = i * (2.0f * M_PI / num_segments);
     float zDepth = -i * zStep + (num_segments * zStep);
-    float thickness = 0.15f * logf(num_segments);
+    float thickness = 0.22f * scale_factor;
     float half_thick = thickness / 2.0f;
 
     // Outward direction from polygon center for this bar
@@ -313,8 +312,6 @@ void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos)
 
 void polygon_display()
 {
-    bg_begin_scene();
-
     float eye_x = camera_radius * sinf(camera_phi) * cosf(camera_theta);
     float eye_y = camera_radius * cosf(camera_phi);
     float eye_z = camera_radius * sinf(camera_phi) * sinf(camera_theta);
@@ -327,13 +324,8 @@ void polygon_display()
     float view_size = scale_factor + 0.5f;
     mat4 proj = Ortho(-view_size, view_size, -view_size, view_size, -1000.0f, 1000.0f);
 
-    // Extract camera basis vectors for the background shader
-    vec3 cam_forward = normalize(at - eye);
-    vec3 cam_right = normalize(cross(cam_forward, up));
-    vec3 cam_up = cross(cam_right, cam_forward);
     float current_time = glfwGetTime();
 
-    bg_draw_escher(eye, cam_right, cam_up, cam_forward, view_size, current_time);
     glUseProgram(program);
 
     // --- SPIN MATH ---
@@ -372,7 +364,7 @@ void polygon_display()
     ball_t += delta_time * 0.25f;
     ball_t = fmodf(ball_t, 1.0f);
 
-    float thickness = 0.15f * logf(num_segments);
+    float thickness = 0.22f * scale_factor;
     float half_thick = thickness / 2.0f;
     float ball_angle = ball_t * 2.0f * M_PI;
 
@@ -434,8 +426,6 @@ void polygon_display()
     // Ball
     display_ball(viewProj, global_spin, ball_local_pos);
 
-    bg_end_scene();
-
     glFinish();
 }
 
@@ -457,7 +447,7 @@ void polygon_set_constants(int n_segments)
 
     global_spin_angle = 0.0;
 
-    polygon_create_solid_segment(n_segments, radius, 0.15f * log(num_segments));
+    polygon_create_solid_segment(n_segments, radius, 0.22f * scale_factor);
 
     generate_sphere();
 

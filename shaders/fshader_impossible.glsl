@@ -42,5 +42,22 @@ void main()
     vec3 litColor = base * (ambient + diffuse) * brightness
                   + vec3(1.0) * specular;
 
+    // --- Edge stylization (Inglis 2014 §Edge Classification) ---
+    // Silhouette edges: surface normal nearly perpendicular to view
+    // direction → dark outline around each block.
+    float facing     = abs(dot(N, V));
+    float silhouette = smoothstep(0.30, 0.05, facing);
+
+    // Crease edges: at cube face-to-face boundaries the dFdx-derived
+    // normal jumps discontinuously, so fwidth(N) spikes there.
+    // Within a flat face fwidth(N) is ~0, and on a triangle diagonal
+    // (within a quad) it's also ~0 because both triangles share the
+    // same face normal — so we don't get spurious internal lines.
+    float crease     = smoothstep(0.20, 0.80, length(fwidth(N)));
+
+    float edge       = max(silhouette, crease);
+    vec3  edgeColor  = vec3(0.04, 0.04, 0.07);
+    litColor         = mix(litColor, edgeColor, edge);
+
     outColor = vec4(litColor, fragColor.a);
 }

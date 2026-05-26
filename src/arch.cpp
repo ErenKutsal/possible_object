@@ -1,4 +1,3 @@
-#include "background.h"
 #include "includes.h"
 
 GLuint arch_shaderProgram;
@@ -158,7 +157,7 @@ void arch_init()
     glBindBuffer(GL_ARRAY_BUFFER, arch_positionBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(arch_positions), arch_positions, GL_STATIC_DRAW);
 
-    arch_shaderProgram = InitShader("../shaders/vshader_impossible.glsl", "../shaders/fshader_impossible.glsl");
+    arch_shaderProgram = InitShader("../shaders/vshader_simple.glsl", "../shaders/fshader_simple.glsl");
     glUseProgram(arch_shaderProgram);
 
     GLuint posLoc = glGetAttribLocation(arch_shaderProgram, "vPosition");
@@ -205,34 +204,11 @@ void arch_init()
 // ------------------------------------------------
 void arch_display()
 {
-    bg_begin_scene();
-
-    // 1. Calculate the model's rotation FIRST
     mat4 sceneRot = RotateY(arch_angleY) * RotateX(arch_angleX) * RotateZ(arch_angleZ);
-
-    // 2. Calculate the inverse rotation (reverse the matrix order and negate the angles)
-    mat4 invRot = RotateZ(-arch_angleZ) * RotateX(-arch_angleX) * RotateY(-arch_angleY);
 
     vec3 global_eye(3.0f, 3.0f, 3.0f);
     vec3 global_at(0.0f, 0.0f, 0.5f);
     vec3 global_up(0.0f, 1.0f, 0.0f);
-
-    // 4. RELATIVITY FIX: Move the raymarching camera into the spinning cube's local space!
-    vec4 local_eye4 = invRot * vec4(global_eye.x, global_eye.y, global_eye.z, 1.0f);
-    vec4 local_at4 = invRot * vec4(global_at.x, global_at.y, global_at.z, 1.0f);
-    vec4 local_up4 = invRot * vec4(global_up.x, global_up.y, global_up.z, 0.0f);  // w=0 because it is a direction
-
-    vec3 local_eye = vec3(local_eye4.x, local_eye4.y, local_eye4.z);
-    vec3 local_at = vec3(local_at4.x, local_at4.y, local_at4.z);
-    vec3 local_up = normalize(vec3(local_up4.x, local_up4.y, local_up4.z));
-
-    // 5. Calculate the ray vectors using our new localized background camera
-    vec3 cam_forward = normalize(local_at - local_eye);
-    vec3 cam_right = normalize(cross(cam_forward, local_up));
-    vec3 cam_up = cross(cam_right, cam_forward);
-    float current_time = glfwGetTime();
-
-    bg_draw_gyroid(local_eye, cam_right, cam_up, cam_forward, current_time);
 
     glUseProgram(arch_shaderProgram);
     glBindVertexArray(arch_vao);
@@ -289,8 +265,6 @@ void arch_display()
     mat4 model5b = sceneRot * Translate(-1.5f, 0.0f, 0.5f + t * 0.25f) * Scale(t, t, 1.0f + t * 0.5f);
     glUniformMatrix4fv(arch_modelPos, 1, GL_FALSE, &model5b.d[0].x);
     glDrawArrays(GL_TRIANGLES, 4 * arch_vertsPerBar, arch_vertsPerBar);
-
-    bg_end_scene();
 
     glFinish();
 }
