@@ -252,64 +252,7 @@ inline GLuint InitShader(const char* vertPath, const char* fragPath)
     return prog;
 }
 
-// ------------------------------------------------
-// Forward declarations for all modules
-// ------------------------------------------------
-
-// Penrose Triangle
-void penrose_tri_init();
-void penrose_tri_display();
-void penrose_tri_mouseButtonCallback(GLFWwindow*, int, int, int);
-void penrose_tri_cursorPosCallback(GLFWwindow*, double, double);
-void penrose_tri_scrollCallback(GLFWwindow*, double, double);
-void penrose_tri_keyCallback(GLFWwindow*, int, int, int, int);
-
-// Penrose Triangle Block
-void penrose_block_init();
-void penrose_block_display();
-void penrose_block_mouseButtonCallback(GLFWwindow*, int, int, int);
-void penrose_block_cursorPosCallback(GLFWwindow*, double, double);
-void penrose_block_scrollCallback(GLFWwindow*, double, double);
-void penrose_block_keyCallback(GLFWwindow*, int, int, int, int);
-
-// Reutersvard Rectangle
-void reutersvard_init();
-void reutersvard_display();
-void reutersvard_mouseButtonCallback(GLFWwindow*, int, int, int);
-void reutersvard_cursorPosCallback(GLFWwindow*, double, double);
-void reutersvard_scrollCallback(GLFWwindow*, double, double);
-void reutersvard_keyCallback(GLFWwindow*, int, int, int, int);
-
-// Impossible Arch
-void arch_init();
-void arch_display();
-void arch_mouseButtonCallback(GLFWwindow*, int, int, int);
-void arch_cursorPosCallback(GLFWwindow*, double, double);
-void arch_scrollCallback(GLFWwindow*, double, double);
-void arch_keyCallback(GLFWwindow*, int, int, int, int);
-
-// Penrose Staircase
-void stair_init();
-void stair_display();
-void stair_mouseButtonCallback(GLFWwindow*, int, int, int);
-void stair_cursorPosCallback(GLFWwindow*, double, double);
-void stair_scrollCallback(GLFWwindow*, double, double);
-void stair_keyCallback(GLFWwindow*, int, int, int, int);
-
-// Impossible Cube
-void icube_init();
-void icube_display();
-void icube_mouseButtonCallback(GLFWwindow*, int, int, int);
-void icube_cursorPosCallback(GLFWwindow*, double, double);
-void icube_scrollCallback(GLFWwindow*, double, double);
-void icube_keyCallback(GLFWwindow*, int, int, int, int);
-
-// Impossible Triangle (Classic)
-void itri_init();
-void itri_display();
-void itri_mouseButtonCallback(GLFWwindow*, int, int, int);
-void itri_cursorPosCallback(GLFWwindow*, double, double);
-void itri_scrollCallback(GLFWwindow*, double, double);
-void itri_keyCallback(GLFWwindow*, int, int, int, int);
+// Per-shape forward declarations now live in main.cpp (since each shape file
+// owns its own private state and only exposes its 6 entry points).
 
 #endif
