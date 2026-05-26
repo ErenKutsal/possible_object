@@ -30,17 +30,9 @@ void reutersvard_cursorPosCallback(GLFWwindow*, double, double);
 void reutersvard_scrollCallback(GLFWwindow*, double, double);
 void reutersvard_keyCallback(GLFWwindow*, int, int, int, int);
 
-// Procedural modules brought back from begum2
-//   nckp_*  — Necker Cube         (neckercube_proc.cpp)
-//   pbp_*   — Blocked Penrose     (penrose_blocks_proc.cpp)
-//   archp_* — Impossible Arch     (arch_proc.cpp)
-void nckp_init();
-void nckp_display();
-void nckp_mouseButtonCallback(GLFWwindow*, int, int, int);
-void nckp_cursorPosCallback(GLFWwindow*, double, double);
-void nckp_scrollCallback(GLFWwindow*, double, double);
-void nckp_keyCallback(GLFWwindow*, int, int, int, int);
-
+// Procedural modules
+//   pbp_*   — Blocked Penrose (Paradox block variant)    (penrose_blocks_proc.cpp)
+//   archp_* — Impossible Arch wide-squat variant         (arch_proc.cpp)
 void pbp_init();
 void pbp_display();
 void pbp_mouseButtonCallback(GLFWwindow*, int, int, int);
@@ -56,39 +48,34 @@ void archp_scrollCallback(GLFWwindow*, double, double);
 void archp_keyCallback(GLFWwindow*, int, int, int, int);
 
 // ─── Shape registry ─────────────────────────────────────────────────────────
-// Pairs are kept adjacent so OBJ vs procedural can be flipped between with one
-// keystroke: 2↔3, 4↔5, 6↔7.
-const int NUM_OBJECTS = 9;
+const int NUM_OBJECTS = 8;
 const char* object_names[NUM_OBJECTS] = {
-    "Impossible Polygon",        // 0 — procedural (parametric n-gon)
-    "Penrose Triangle",          // 1 — OBJ
-    "Blocked Penrose (Blender)", // 2 — OBJ (Paradox block variant)
-    "Impossible Cube",           // 3 — OBJ
-    "Necker Cube",               // 4 — procedural (back-corner swap)
-    "Impossible Arch",           // 5 — OBJ
-    "Impossible Arch (proc)",    // 6 — procedural (5-bar Inglis)
-    "Penrose Stair",             // 7 — OBJ
-    "Reutersvard Rectangle",     // 8 — OBJ
+    "Impossible Polygon",         // 0 — procedural (parametric n-gon)
+    "Penrose Triangle",           // 1 — OBJ
+    "Blocked Penrose (Blender)",  // 2 — OBJ (Paradox block variant)
+    "Impossible Cube",            // 3 — OBJ
+    "Impossible Arch",            // 4 — OBJ (tall narrow variant)
+    "Impossible Arch (wide)",     // 5 — OBJ (wide squat variant)
+    "Penrose Stair",              // 6 — OBJ
+    "Reutersvard Rectangle",      // 7 — OBJ
 };
 
 int current_object = 0;
 AppState app_state = AppState::TITLE;
 
 // ─── Per-slot callback dispatch ────────────────────────────────────────────
-// Centralised so the key/mouse/cursor/scroll callbacks all use the same map.
 static void key_for(int slot, GLFWwindow* w, int k, int s, int a, int m)
 {
     switch (slot)
     {
-        case 0: polygon_key_callback(w, k, s, a, m); break;
-        case 1: penrose_keyCallback(w, k, s, a, m);  break;
-        case 2: pbp_keyCallback(w, k, s, a, m);      break;
-        case 3: cube_keyCallback(w, k, s, a, m);     break;
-        case 4: nckp_keyCallback(w, k, s, a, m);     break;
-        case 5: arch_keyCallback(w, k, s, a, m);     break;
-        case 6: archp_keyCallback(w, k, s, a, m);    break;
-        case 7: penrose_block_keyCallback(w, k, s, a, m); break;
-        case 8: reutersvard_keyCallback(w, k, s, a, m);   break;
+        case 0: polygon_key_callback(w, k, s, a, m);    break;
+        case 1: penrose_keyCallback(w, k, s, a, m);     break;
+        case 2: pbp_keyCallback(w, k, s, a, m);         break;
+        case 3: cube_keyCallback(w, k, s, a, m);        break;
+        case 4: arch_keyCallback(w, k, s, a, m);        break;
+        case 5: archp_keyCallback(w, k, s, a, m);       break;
+        case 6: penrose_block_keyCallback(w, k, s, a, m); break;
+        case 7: reutersvard_keyCallback(w, k, s, a, m);   break;
     }
 }
 static void mouse_for(int slot, GLFWwindow* w, int b, int a, int m)
@@ -99,11 +86,10 @@ static void mouse_for(int slot, GLFWwindow* w, int b, int a, int m)
         case 1: penrose_mouseButtonCallback(w, b, a, m); break;
         case 2: pbp_mouseButtonCallback(w, b, a, m);     break;
         case 3: cube_mouseButtonCallback(w, b, a, m);    break;
-        case 4: nckp_mouseButtonCallback(w, b, a, m);    break;
-        case 5: arch_mouseButtonCallback(w, b, a, m);    break;
-        case 6: archp_mouseButtonCallback(w, b, a, m);   break;
-        case 7: penrose_block_mouseButtonCallback(w, b, a, m); break;
-        case 8: reutersvard_mouseButtonCallback(w, b, a, m);   break;
+        case 4: arch_mouseButtonCallback(w, b, a, m);    break;
+        case 5: archp_mouseButtonCallback(w, b, a, m);   break;
+        case 6: penrose_block_mouseButtonCallback(w, b, a, m); break;
+        case 7: reutersvard_mouseButtonCallback(w, b, a, m);   break;
     }
 }
 static void cursor_for(int slot, GLFWwindow* w, double x, double y)
@@ -114,11 +100,10 @@ static void cursor_for(int slot, GLFWwindow* w, double x, double y)
         case 1: penrose_cursorPosCallback(w, x, y); break;
         case 2: pbp_cursorPosCallback(w, x, y);     break;
         case 3: cube_cursorPosCallback(w, x, y);    break;
-        case 4: nckp_cursorPosCallback(w, x, y);    break;
-        case 5: arch_cursorPosCallback(w, x, y);    break;
-        case 6: archp_cursorPosCallback(w, x, y);   break;
-        case 7: penrose_block_cursorPosCallback(w, x, y); break;
-        case 8: reutersvard_cursorPosCallback(w, x, y);   break;
+        case 4: arch_cursorPosCallback(w, x, y);    break;
+        case 5: archp_cursorPosCallback(w, x, y);   break;
+        case 6: penrose_block_cursorPosCallback(w, x, y); break;
+        case 7: reutersvard_cursorPosCallback(w, x, y);   break;
     }
 }
 static void scroll_for(int slot, GLFWwindow* w, double x, double y)
@@ -128,11 +113,10 @@ static void scroll_for(int slot, GLFWwindow* w, double x, double y)
         case 1: penrose_scrollCallback(w, x, y);     break;
         case 2: pbp_scrollCallback(w, x, y);         break;
         case 3: cube_scrollCallback(w, x, y);        break;
-        case 4: nckp_scrollCallback(w, x, y);        break;
-        case 5: arch_scrollCallback(w, x, y);        break;
-        case 6: archp_scrollCallback(w, x, y);       break;
-        case 7: penrose_block_scrollCallback(w, x, y); break;
-        case 8: reutersvard_scrollCallback(w, x, y);   break;
+        case 4: arch_scrollCallback(w, x, y);        break;
+        case 5: archp_scrollCallback(w, x, y);       break;
+        case 6: penrose_block_scrollCallback(w, x, y); break;
+        case 7: reutersvard_scrollCallback(w, x, y);   break;
         default: break;
     }
 }
@@ -144,11 +128,10 @@ static void display_for(int slot)
         case 1: penrose_display(); break;
         case 2: pbp_display();     break;
         case 3: cube_display();    break;
-        case 4: nckp_display();    break;
-        case 5: arch_display();    break;
-        case 6: archp_display();   break;
-        case 7: penrose_block_display(); break;
-        case 8: reutersvard_display();   break;
+        case 4: arch_display();    break;
+        case 5: archp_display();   break;
+        case 6: penrose_block_display(); break;
+        case 7: reutersvard_display();   break;
     }
 }
 
@@ -184,7 +167,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         else if (key == GLFW_KEY_6)   target = 5;
         else if (key == GLFW_KEY_7)   target = 6;
         else if (key == GLFW_KEY_8)   target = 7;
-        else if (key == GLFW_KEY_9)   target = 8;
 
         if (target != -1)
         {
@@ -246,14 +228,13 @@ int main()
     glewInit();
 #endif
 
-    // Initialize all objects (same init order as before; only display order changed)
+    // Initialize all objects
     polygon_init();
     penrose_init();
     cube_init();
     penrose_block_init();
     arch_init();
     reutersvard_init();
-    nckp_init();
     pbp_init();
     archp_init();
 
@@ -263,7 +244,7 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-    std::cout << "Press TAB to cycle objects, or 1-9 to jump directly" << std::endl;
+    std::cout << "Press TAB to cycle objects, or 1-8 to jump directly" << std::endl;
     for (int i = 0; i < NUM_OBJECTS; i++)
         std::cout << "  " << (i + 1) << ". " << object_names[i] << std::endl;
 

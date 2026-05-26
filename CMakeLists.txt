@@ -50,8 +50,8 @@ add_executable(
     src/penrose_blocks.cpp
     src/arch.cpp
     src/reutersvard.cpp
-    # Procedural shapes brought back from begum2 (slots 7-9, 0-indexed 6-8)
-    src/neckercube_proc.cpp
+    # Variant shapes — same OBJ category as one of the OBJ slots above but
+    # rendered with different proportions / palette / starting pose.
     src/penrose_blocks_proc.cpp
     src/arch_proc.cpp
     src/ui.cpp

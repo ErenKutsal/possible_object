@@ -4,22 +4,20 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 
-#define SHRINE_COUNT 9
+#define SHRINE_COUNT 8
 static const char* SHRINE_THEMES[SHRINE_COUNT] = {
-    "Floral", "Stone", "Water", "Fire", "Cosmic", "Forge",
-    "Glass",  "Earth", "Iron",
+    "Floral", "Stone", "Water", "Fire", "Cosmic", "Forge", "Glass", "Iron",
 };
 
 static const char* SHRINE_NAMES[SHRINE_COUNT] = {
-    "Impossible Polygon",      // 0
-    "Penrose Triangle",        // 1 — OBJ
-    "Blocked Penrose (Blender)", // 2 — OBJ pair of #1 (Paradox block variant)
-    "Impossible Cube",         // 3 — OBJ
-    "Necker Cube",             // 4 — procedural pair of #3
-    "Impossible Arch",         // 5 — OBJ
-    "Impossible Arch (proc)",  // 6 — procedural pair of #5
-    "Penrose Stair",           // 7 — OBJ
-    "Reutersvard Rectangle",   // 8 — OBJ
+    "Impossible Polygon",         // 0
+    "Penrose Triangle",           // 1 — OBJ
+    "Blocked Penrose (Blender)",  // 2 — OBJ pair of #1
+    "Impossible Cube",            // 3 — OBJ
+    "Impossible Arch",            // 4 — OBJ (tall narrow)
+    "Impossible Arch (wide)",     // 5 — OBJ pair of #4 (wide squat)
+    "Penrose Stair",              // 6 — OBJ
+    "Reutersvard Rectangle",      // 7 — OBJ
 };
 
 static const ImVec4 SHRINE_TINTS[SHRINE_COUNT] = {
@@ -30,7 +28,6 @@ static const ImVec4 SHRINE_TINTS[SHRINE_COUNT] = {
     ImVec4(0.55f, 0.45f, 0.78f, 1.0f),  // Cosmic — violet
     ImVec4(0.80f, 0.70f, 0.45f, 1.0f),  // Forge — brass / warm gold
     ImVec4(0.65f, 0.78f, 0.82f, 1.0f),  // Glass — pale cyan
-    ImVec4(0.62f, 0.48f, 0.36f, 1.0f),  // Earth — warm sienna
     ImVec4(0.55f, 0.55f, 0.60f, 1.0f),  // Iron — steel grey
 };
 

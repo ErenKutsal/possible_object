@@ -29,14 +29,19 @@ struct ObjShape
     std::vector<vec4> positions;
     std::vector<vec4> colors;
 
-    // Default axonometric view (matches Paradox Toolkit's add-camera operator)
-    float angleX = 54.736f;
-    float angleY = 0.0f;
-    float angleZ = -45.0f;
-    // Per-shape overridable defaults — used by the R-key reset.
-    float defaultAngleX = 54.736f;
-    float defaultAngleY = 0.0f;
-    float defaultAngleZ = -45.0f;
+    // PUZZLE STARTING POSITION (the "unsolved" pose) — clearly off the magic
+    // axonometric so the illusion is broken and the player has to rotate to
+    // find the angle where the cut sides "touch". The actual solved angle is
+    // (54.736°, 0°, -45°) — that's what S-key snaps to.
+    //
+    // Per-slot init() can override defaultAngle* with a different starting
+    // pose; R-key resets to whichever defaults that slot set.
+    float angleX = 40.0f;
+    float angleY = 25.0f;
+    float angleZ = -30.0f;
+    float defaultAngleX = 40.0f;
+    float defaultAngleY = 25.0f;
+    float defaultAngleZ = -30.0f;
 
     // Mouse drag state
     bool   isDragging = false;
@@ -162,9 +167,34 @@ struct ObjShape
         if (keyCode == GLFW_KEY_DOWN)  angleX += 3.0f;
         if (keyCode == GLFW_KEY_R)
         {
+            // R = reset to this slot's defaults (may include per-slot tweaks
+            // like the Y-rotated Penrose Stair or Z-rotated Impossible Arch).
             angleX = defaultAngleX;
             angleY = defaultAngleY;
             angleZ = defaultAngleZ;
+        }
+        if (keyCode == GLFW_KEY_S)
+        {
+            // S = "solved" pose.
+            //
+            // The OBJ files come out of the Paradox Toolkit Blender addon
+            // already laid out in iso-aligned coordinates: Blender's axonometric
+            // camera at (14.43, -14.43, 14.43) maps — after the Wavefront
+            // axis remap (Blender Y -> OBJ -Z, Blender Z -> OBJ Y) — to the
+            // OBJ-space direction (1, 1, 1)/sqrt(3). The bisect cuts that
+            // Paradox bakes into each figure are perpendicular to that
+            // direction.
+            //
+            // Our OpenGL camera lives at (25, 25, 25) looking at the origin
+            // with up = (0, 1, 0), so its view direction is also (1, 1, 1)/
+            // sqrt(3) (same line, opposite sign — equivalent for orthographic
+            // projection). The bisect cuts therefore project to lines and the
+            // illusion clicks into place WITHOUT any figure rotation.
+            //
+            // Hence the solved pose is identity rotation.
+            angleX = 0.0f;
+            angleY = 0.0f;
+            angleZ = 0.0f;
         }
         if (keyCode == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(win, GL_TRUE);
     }
