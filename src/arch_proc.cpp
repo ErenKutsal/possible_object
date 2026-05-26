@@ -29,7 +29,18 @@ static ObjColorPalette arch_proc_palette()
 
 void archp_init()
 {
-    g_shape.init("../models/impossible_arch_wide.obj", arch_proc_palette());
+    g_shape.init("../models/impossible_arch_curved.obj", arch_proc_palette());
+
+    // Custom starting orientation — pulls the camera toward a side-ish view
+    // so the 110° bend + twist on the bars is clearly visible. Distinct from
+    // the iso defaults of slots 4 and 5 (the straight arch and its twin).
+    // R resets to this view; S still snaps to (0,0,0) for the illusion solve.
+    g_shape.angleX        = 25.0f;
+    g_shape.angleY        = 60.0f;
+    g_shape.angleZ        = -20.0f;
+    g_shape.defaultAngleX = 25.0f;
+    g_shape.defaultAngleY = 60.0f;
+    g_shape.defaultAngleZ = -20.0f;
 }
 void archp_display() { g_shape.display(); }
 void archp_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }

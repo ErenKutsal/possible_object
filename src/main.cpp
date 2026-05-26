@@ -55,7 +55,7 @@ const char* object_names[NUM_OBJECTS] = {
     "Blocked Penrose (Blender)",  // 2 — OBJ (Paradox block variant)
     "Impossible Cube",            // 3 — OBJ
     "Impossible Arch",            // 4 — OBJ (tall narrow variant)
-    "Impossible Arch (wide)",     // 5 — OBJ (wide squat variant)
+    "Impossible Arch (round)",    // 5 — Paradox arch sphere-cast to bend bars
     "Penrose Stair",              // 6 — OBJ
     "Reutersvard Rectangle",      // 7 — OBJ
 };
@@ -213,7 +213,8 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 800, "Impossible Objects", NULL, NULL);
+    // 16:10 — matches MacBook screen ratio (e.g. 1440x900, 2560x1600)
+    GLFWwindow* window = glfwCreateWindow(1280, 800, "Impossible Objects", NULL, NULL);
     if (!window) { glfwTerminate(); exit(EXIT_FAILURE); }
 
     glfwGetFramebufferSize(window, &screen_w, &screen_h);

@@ -22,6 +22,11 @@ static ObjColorPalette cube_palette()
 void cube_init()
 {
     g_shape.init("../models/impossible_cube.obj", cube_palette());
+
+    // This Paradox cube has a larger bounding box than the other figures —
+    // pull the ortho frustum out a bit so it appears at a similar on-screen
+    // size as slots 2, 3, 5–8.
+    g_shape.orthoSize = 12.5f;   // was 9.5 (the shared default)
 }
 void cube_display() { g_shape.display(); }
 void cube_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }

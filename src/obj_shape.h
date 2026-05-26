@@ -50,7 +50,7 @@ struct ObjShape
 
     // Camera placement (orthographic, looking from eye at origin)
     vec3   cameraEye = vec3(25.0f, 25.0f, 25.0f);
-    float  orthoSize = 12.0f;
+    float  orthoSize = 9.5f;     // tighter zoom so the figure fills more of the window
     float  objHeight = 12.0f;
 
     // ──────────────────────────────────────────────────────────────────────

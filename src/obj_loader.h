@@ -134,7 +134,37 @@ inline bool obj_load(const char* path,
         fprintf(stderr, "obj_load: %s loaded zero vertices\n", path);
         return false;
     }
-    fprintf(stderr, "obj_load: %s -> %zu verts (%zu raw verts, %zu normals)\n",
-            path, out_positions.size(), verts.size(), norms.size());
+
+    // ── Center the mesh ──────────────────────────────────────────────────
+    // We use the AVERAGE of bbox-centre and centroid (mean of vertices). Bbox
+    // alone over-corrects when a figure has extreme outlier verts on one
+    // side; pure centroid under-corrects when one section has lots more
+    // vertices (e.g. a subdivided bend). Their average tracks the visual
+    // middle of the figure more reliably than either alone, so the solved
+    // pose lands the figure at screen centre.
+    float min_x =  1e30f, min_y =  1e30f, min_z =  1e30f;
+    float max_x = -1e30f, max_y = -1e30f, max_z = -1e30f;
+    double mx = 0, my = 0, mz = 0;
+    for (const vec4& p : out_positions)
+    {
+        if (p.x < min_x) min_x = p.x;
+        if (p.y < min_y) min_y = p.y;
+        if (p.z < min_z) min_z = p.z;
+        if (p.x > max_x) max_x = p.x;
+        if (p.y > max_y) max_y = p.y;
+        if (p.z > max_z) max_z = p.z;
+        mx += p.x; my += p.y; mz += p.z;
+    }
+    float n = (float)out_positions.size();
+    float bx = 0.5f * (min_x + max_x);
+    float by = 0.5f * (min_y + max_y);
+    float bz = 0.5f * (min_z + max_z);
+    float cx = 0.5f * (bx + (float)(mx / n));
+    float cy = 0.5f * (by + (float)(my / n));
+    float cz = 0.5f * (bz + (float)(mz / n));
+    for (vec4& p : out_positions) { p.x -= cx; p.y -= cy; p.z -= cz; }
+
+    fprintf(stderr, "obj_load: %s -> %zu verts  (bbox-centre was (%.2f, %.2f, %.2f))\n",
+            path, out_positions.size(), cx, cy, cz);
     return true;
 }

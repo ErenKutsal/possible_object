@@ -15,7 +15,7 @@ static const char* SHRINE_NAMES[SHRINE_COUNT] = {
     "Blocked Penrose (Blender)",  // 2 — OBJ pair of #1
     "Impossible Cube",            // 3 — OBJ
     "Impossible Arch",            // 4 — OBJ (tall narrow)
-    "Impossible Arch (wide)",     // 5 — OBJ pair of #4 (wide squat)
+    "Impossible Arch (round)",    // 5 — sphere-cast pair of #4
     "Penrose Stair",              // 6 — OBJ
     "Reutersvard Rectangle",      // 7 — OBJ
 };

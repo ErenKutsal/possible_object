@@ -34,6 +34,11 @@ static ObjColorPalette blocks_palette()
 void pbp_init()
 {
     g_shape.init("../models/penrose_blocks.obj", blocks_palette());
+
+    // The mesh itself has been rotated 60° around the iso axis (1,1,1) when
+    // exported from Blender — that axis is parallel to the bisect-cut normals,
+    // so the illusion still works at S=(0,0,0) but the figure shows spun 60°
+    // in the screen plane relative to slot 2. Keep ObjShape's default R pose.
 }
 void pbp_display() { g_shape.display(); }
 void pbp_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }
