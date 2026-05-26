@@ -76,11 +76,57 @@ float spin_momentum      = 0.0f;
 float global_spin_angle  = 0.0f;
 float last_frame_time    = 0.0f;
 
+// ─── "You solved it!" animation state ───────────────────────────────────────
+// Two phases:
+//   1. snap_in       — camera eases from wherever it was to the magic angle
+//   2. lock_pulse    — once on the magic angle, a brief scale + brightness
+//                      pulse plays so the solve feels satisfying.
+// Triggered by S key OR auto-triggered when the user drags the camera within
+// a small tolerance of the magic angle. Cancelled by R / SPACE / A or by the
+// user dragging the camera back out of tolerance.
+static bool  anim_snapping       = false;
+static float anim_start_time     = 0.0f;
+static float anim_start_theta    = 0.0f;
+static float anim_start_phi      = 0.0f;
+// The actual target pose for the in-flight snap animation AND the pinned
+// pose while is_locked is true. The "magic" condition is a whole 1-param
+// family (eye_x = 0 — see below), not a single angle, so when the player
+// finds the alignment from the BACK side we lock there instead of teleport-
+// ing them to the front.
+static float anim_target_theta   = 0.0f;
+static float anim_target_phi     = 0.0f;
+static constexpr float ANIM_SNAP_DURATION = 0.85f;   // seconds — camera ease-in (longer for smoother feel)
+
+static bool  is_locked           = false;
+static float lock_start_time     = 0.0f;
+static constexpr float LOCK_PULSE_DURATION = 1.0f;   // seconds — bump+glow window
+
+// The depth-trick cuts on bar 0's two halves are flat planes perpendicular
+// to the X axis. They project to a single vertical screen line — making the
+// illusion click — whenever the camera's view direction has zero X
+// component. With camera at
+//     eye = R · ( sin φ cos θ,   cos φ,   sin φ sin θ )
+// that's the condition  sin φ · cos θ = 0,  i.e. eye_x = 0. The locus is a
+// CIRCLE in the YZ plane: theta = π/2 (front meridian) OR theta = -π/2 ≡
+// 3π/2 (back meridian), with any φ. So we detect alignment by |eye_x|, and
+// snap to whichever meridian (front/back) is closer.
+static constexpr float CANONICAL_THETA = M_PI / 2.0f;
+static constexpr float CANONICAL_PHI   = M_PI / 2.0f;
+
+// Tolerance is now on eye_x magnitude (proportional to camera_radius).
+// Tightened — the helper was too aggressive, snapping in before the player
+// felt they'd actually FOUND the angle. 0.035 ≈ 2.0° off the magic YZ
+// plane, which is "you just got it" territory.
+static constexpr float AUTO_SNAP_EYEX_TOL = 0.035f;
+static constexpr float UNLOCK_EYEX_TOL    = 0.18f;   // hysteresis (room to escape)
+
 // Forward decls — bodies live further down with the keyboard handler.
 static unsigned g_polygon_session_seed = 0;
 static void polygon_randomize_unsolved();
 static void polygon_solve();
 static void polygon_apply_pose_for(int n);
+static void polygon_start_snap_animation();
+static void polygon_cancel_lock();
 
 // =============================================
 // Geometry helpers
@@ -127,12 +173,33 @@ static void set_face_normal(vec3* normals, int start_idx, vec3 a, vec3 b, vec3 c
 }
 
 // Emit the 6 hex-prism faces of a bar piece into out_verts/out_norms (36 verts).
-// `L_left` / `L_right` are the left/right tip half-lengths (so left edge sits at
-// -L_left - dx_*, right edge at +L_right + dx_*). The mitre offsets `dx_*`
-// EXTEND the bar outward (they overshoot the nominal length so the bar's tip
-// can be sliced at the polygon's corner angle and still join its neighbour
-// cleanly). `mitre_left` / `mitre_right` say whether that tip is mitered (true)
-// or flat-cut (false, used for the bisect cut on the two halves of bar 0).
+//
+// Diamond cross-section (4 vertices, 4 slanted long faces meeting at a top
+// ridge and a bottom ridge). The chamfered profile is what makes the depth-
+// trick illusion read cleanly when viewed down the magic axis — a flat-top
+// rectangular bar covers too much screen width and breaks the alignment of
+// bar 0's two halves with bars 1 and N-1.
+//
+//   Cross-section (looking down the bar's length axis x):
+//             +z
+//              |
+//            * top ridge (y=0, z=+half_thick)
+//           / \
+//          /   \
+//   inner *     * outer
+//   y=-h_t \   / y=+h_t
+//           \ /
+//            * bot ridge (y=0, z=-half_thick)
+//              |
+//             -z
+//
+// The ball rolls on the TOP-OUTER slanted face (the upper-right slope when
+// looking from outside the polygon), not on the thin ridge line itself.
+// See polygon_display for the ball positioning math.
+//
+// `L_left`/`L_right`: tip half-lengths. `mitre_*`: true → tip is mitered
+// outward by dx_inner / dx_outer to fit the polygon corner; false → flat
+// vertical cut (used for the two halves of bar 0).
 static void build_bar_geometry(vec3* out_verts, vec3* out_norms,
                                int n_segments, float radius, float thickness,
                                float L_left, float L_right,
@@ -335,10 +402,16 @@ void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos)
     glUniform3fv(base_color_loc, 1, &ballColor.x);
     glUniform1f(bar_t_loc, ball_t);
 
-    bool crossing_seam = (ball_t > 0.85f);
-    if (crossing_seam) glDisable(GL_DEPTH_TEST);
+    // The ball is conceptually a 2D "you solved it" indicator riding the
+    // figure — not a 3D object that should be occluded by the polygon. With
+    // the impossible-polygon's depth-trick (bars spiraling z, bar 0 split
+    // into two halves at top/bottom z), the ball would get clipped behind
+    // bar tips at every corner and behind bar 0 LEFT during the seam
+    // crossing. Disable depth test for the WHOLE ball draw so it always
+    // floats on top of the loop wherever the orbit takes it.
+    glDisable(GL_DEPTH_TEST);
     glDrawArrays(GL_TRIANGLES, 0, sphere_vertices.size());
-    if (crossing_seam) glEnable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
     glBindVertexArray(0);
 }
 
@@ -385,9 +458,94 @@ void polygon_display()
     float spin_speed = (spin_momentum * spin_momentum * spin_momentum) * 2000.0f;
     global_spin_angle += spin_speed * delta_time;
 
+    // ─── SNAP-TO-SOLVED / LOCK animation ──────────────────────────────────
+    // 1. If we're inside the snap animation, ease camera_theta/phi toward
+    //    the magic angle. When done, kick off the lock pulse.
+    // 2. If we're NOT animating or locked and the user is dragging close
+    //    enough to magic, auto-trigger the snap.
+    // 3. If we're locked and the user dragged well out of tolerance, drop
+    //    the lock so they can play with the figure again.
+    // Illusion-visible region: view direction must be in the YZ plane
+    // (eye_x = 0) AND φ near π/2 so LookAt doesn't go degenerate (which
+    // happens when up is parallel to view direction, near φ = 0 or π).
+    float eye_x_unit = sinf(camera_phi) * cosf(camera_theta);
+    float eye_y_unit = cosf(camera_phi);                        // = 0 at φ = π/2
+
+    if (anim_snapping)
+    {
+        float t = (current_time - anim_start_time) / ANIM_SNAP_DURATION;
+        if (t >= 1.0f) {
+            t = 1.0f;
+            anim_snapping  = false;
+            is_locked      = true;
+            lock_start_time = current_time;
+        }
+        // Smootherstep (Ken Perlin's improved smoothstep) — zero velocity AND
+        // zero acceleration at both ends.  6t⁵ − 15t⁴ + 10t³.  Reads much
+        // smoother than ease-out cubic, which has a noticeably abrupt start.
+        float et = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+        camera_theta = anim_start_theta + (anim_target_theta - anim_start_theta) * et;
+        camera_phi   = anim_start_phi   + (anim_target_phi   - anim_start_phi)   * et;
+    }
+    else if (!is_locked && !is_space_pressed)
+    {
+        // Auto-snap fires when the camera is BOTH in the (tight) magic
+        // YZ-plane band AND close enough to the top-down meridian that the
+        // illusion will look clean once we snap (no LookAt degeneracy).
+        // Tightened phi-band too (was 0.30) — the player has to find the
+        // pose, not just drift in its general direction.
+        if (fabsf(eye_x_unit) < AUTO_SNAP_EYEX_TOL && fabsf(eye_y_unit) < 0.15f)
+            polygon_start_snap_animation();
+    }
+    else if (is_locked && is_dragging)
+    {
+        // Locked + dragging out of either tolerance → release.
+        if (fabsf(eye_x_unit) > UNLOCK_EYEX_TOL || fabsf(eye_y_unit) > 0.40f)
+            is_locked = false;
+    }
+
+    // While locked, the camera is held at whichever magic pose we snapped
+    // to (front OR back) so the player can't accidentally drift off it
+    // during the celebration pulse.
+    if (is_locked) {
+        camera_theta = anim_target_theta;
+        camera_phi   = anim_target_phi;
+    }
+
+    // Lock-pulse factors driven by elapsed time since lock latched. Fades to
+    // zero after LOCK_PULSE_DURATION so the figure settles to its normal look.
+    float lock_scale = 1.0f;
+    float lock_glow  = 0.0f;
+    if (is_locked) {
+        float lt = (current_time - lock_start_time) / LOCK_PULSE_DURATION;
+        if (lt < 1.0f) {
+            // Critically-damped overshoot: bump up, settle back to 1.
+            //   bump(t) = sin(π t) * (1 - t)   → peaks ~0.385 at t≈0.3
+            float bump  = sinf((float)M_PI * lt) * (1.0f - lt);
+            lock_scale = 1.0f + 0.08f * bump;
+            // Glow rides the bump but fades out faster.
+            lock_glow  = 0.45f * bump;
+        }
+    }
+
+    // Apply the lock pulse to the camera radius too so the bump reads from
+    // every angle (otherwise pure model scale + ortho fight each other).
+    mat4 lock_scale_mat = Scale(lock_scale, lock_scale, lock_scale);
+
     mat4 global_spin =
         RotateX(global_spin_angle) * RotateY(global_spin_angle * 1.3f) * RotateZ(global_spin_angle * 0.7f);
     mat4 viewProj = proj * view;
+
+    // Note: view/proj have to be recomputed since camera_theta/phi changed
+    // (the animation modified them).
+    {
+        float ex = camera_radius * sinf(camera_phi) * cosf(camera_theta);
+        float ey = camera_radius * cosf(camera_phi);
+        float ez = camera_radius * sinf(camera_phi) * sinf(camera_theta);
+        eye = vec3(ex, ey, ez);
+        view = LookAt(eye, at, up);
+        viewProj = proj * view;
+    }
 
     vec3 lightPos(2.0f, 3.0f, 2.0f);
     glUniform3fv(light_pos_loc, 1, &lightPos.x);
@@ -395,39 +553,105 @@ void polygon_display()
     glUniform1i(num_segments_loc, num_segments);
 
     // --- Ball position along the loop ---
-    ball_t += delta_time * 0.25f;
-    ball_t = fmodf(ball_t, 1.0f);
+    // Ball only orbits while the polygon is LOCKED (solved). When unlocked
+    // we hold ball_t at 0 so the next solve always starts the orbit cleanly
+    // from the same spot. The draw call at the bottom of polygon_display
+    // similarly only fires when is_locked is true.
+    if (is_locked)
+    {
+        ball_t += delta_time * 0.25f;
+        ball_t = fmodf(ball_t, 1.0f);
+    }
+    else
+    {
+        ball_t = 0.0f;
+    }
 
     float thickness  = POLYGON_BAR_THICKNESS * scale_factor;
     float half_thick = thickness / 2.0f;
     float ball_angle = ball_t * 2.0f * M_PI;
 
-    float base_z       = num_segments * zStep * (1.0f - ball_t);
-    float ball_local_z = base_z + half_thick + BALL_RADIUS;
+    // ── Ball's Z follows the bar it's currently on (discrete, not lerped) ──
+    // Each bar sits at its own fixed z, so the ball must sit on TOP of THAT
+    // bar's z — not lerp through space below the bar's surface.
+    //
+    // Loop topology of the impossible polygon:
+    //   ball_t in [0,        0.5/N] → bar 0 LEFT half   z = N*zStep (top)
+    //   ball_t in [(k-0.5)/N, (k+0.5)/N] for k=1..N-1 → bar k full   z = (N-k)*zStep
+    //   ball_t in [(N-0.5)/N, 1]    → bar 0 RIGHT half  z = 0       (bot)
+    //
+    // The z STEP at each polygon corner happens at the same instant the
+    // ball changes direction in XY (going around the vertex), so visually
+    // it just looks like the ball rolled around the corner onto the next
+    // bar. The big Z jump at the seam (bar 0 left → right) hides behind the
+    // depth-trick cut alignment at the magic angle.
+    float bar_z;
+    {
+        int k = (int)floorf(ball_t * (float)num_segments + 0.5f);
+        if      (k == 0)             bar_z = num_segments * zStep;   // bar 0 LEFT
+        else if (k >= num_segments)  bar_z = 0.0f;                   // bar 0 RIGHT
+        else                         bar_z = (num_segments - k) * zStep;
+    }
+
+    // The diamond cross-section has 4 slanted faces — no flat horizontal
+    // top. We put the ball on the TOP-OUTER slant (the upper-outside slope),
+    // which is a real 2D surface (not the ridge LINE between two faces).
+    //
+    // Top-outer face in bar-local coords runs from
+    //   ridge  (y=0,         z=+half_thick)   to
+    //   outer  (y=+half_thick, z=0).
+    // Its midpoint is (y, z) = (half_thick/2, half_thick/2), normal is
+    // (0, 1, 1)/√2. Ball center = midpoint + BALL_RADIUS * normal.
+    const float HALF_SQRT2 = 0.70710678f;  // 1/√2
+    float ball_local_y_offset = half_thick * 0.5f + BALL_RADIUS * HALF_SQRT2;  // radial outward
+    float ball_local_z_offset = half_thick * 0.5f + BALL_RADIUS * HALF_SQRT2;  // upward
 
     float segment_angle = 2.0f * M_PI / num_segments;
     float nearest_bar   = roundf(ball_angle / segment_angle) * segment_angle;
     float delta_angle   = ball_angle - nearest_bar;
-    float r_poly        = radius / cosf(delta_angle);
+    // Polygon-outline radius scaled outward to put the ball on top-outer.
+    float r_poly        = (radius + ball_local_y_offset) / cosf(delta_angle);
 
+    float ball_local_z = bar_z + ball_local_z_offset;
     vec3 ball_local_pos(-r_poly * sinf(ball_angle), r_poly * cosf(ball_angle), ball_local_z);
 
-    // Cool slate-blue palette borrowed from slot 2 (Penrose Triangle). Three
-    // shades per bar so top / bottom / tip-caps read distinctly — matches the
-    // Paradox figures' multi-tone look instead of a flat single color.
-    vec3 topColor (0.74f, 0.82f, 0.92f);   // top faces — light sky
-    vec3 botColor (0.52f, 0.62f, 0.78f);   // bottom faces — mid slate
-    vec3 tipColor (0.46f, 0.56f, 0.72f);   // end caps — darker slate
+    // ── Sage / mint-green palette ─────────────────────────────────────────
+    // Slots 2-8 each have their own family (slate-blue, warm clay, lilac,
+    // deep blue, ...). Slot 1 gets a sage-green family — a unique hue in
+    // the lineup, matched in STRUCTURE to slot 2's 3-tone (top / bottom /
+    // tip-caps) so the figure visually belongs to the same set.
+    vec3 topColor(0.74f, 0.88f, 0.74f);   // top faces  — light sage
+    vec3 botColor(0.50f, 0.72f, 0.56f);   // bottom     — medium pine
+    vec3 tipColor(0.36f, 0.56f, 0.44f);   // end caps   — deep forest
+
+    // While locked, brighten the palette by lock_glow so the figure visibly
+    // pulses. Clamp to [0,1] so we don't blow out the shader.
+    auto add_glow = [&](vec3 c) {
+        c.x = fminf(1.0f, c.x + lock_glow);
+        c.y = fminf(1.0f, c.y + lock_glow);
+        c.z = fminf(1.0f, c.z + lock_glow);
+        return c;
+    };
+    vec3 topC = add_glow(topColor);
+    vec3 botC = add_glow(botColor);
+    vec3 tipC = add_glow(tipColor);
 
     // Helper: draw one bar's faces in 3 colored chunks (12 verts each:
     // 0..11 = top faces, 12..23 = bottom faces, 24..35 = tip caps).
+    // Matches the simple 3-tone look of slot 2's Penrose Triangle.
     auto draw_bar_tritone = [&]() {
-        glUniform3fv(base_color_loc, 1, &topColor.x); glDrawArrays(GL_TRIANGLES,  0, 12);
-        glUniform3fv(base_color_loc, 1, &botColor.x); glDrawArrays(GL_TRIANGLES, 12, 12);
-        glUniform3fv(base_color_loc, 1, &tipColor.x); glDrawArrays(GL_TRIANGLES, 24, 12);
+        glUniform3fv(base_color_loc, 1, &topC.x); glDrawArrays(GL_TRIANGLES,  0, 12);
+        glUniform3fv(base_color_loc, 1, &botC.x); glDrawArrays(GL_TRIANGLES, 12, 12);
+        glUniform3fv(base_color_loc, 1, &tipC.x); glDrawArrays(GL_TRIANGLES, 24, 12);
     };
 
     float L = radius * tanf(M_PI / num_segments);
+
+    // When the polygon is UNSOLVED, push the ball-light point so far away
+    // that the shader's 1/(1+15·d²) attenuation kills it to zero. Otherwise
+    // the leftover ball position (often near 0,0,0 — right at the cut) bleeds
+    // a yellow glow into bar 0's bisect cut even though the ball isn't drawn.
+    vec3 FAR_BALL(1.0e6f, 1.0e6f, 1.0e6f);
 
     // Bars 1 .. N-1 — full mitered segments, spiraling down in z.
     for (int bar_index = 1; bar_index < num_segments; bar_index++)
@@ -437,16 +661,26 @@ void polygon_display()
         float bar_t  = (float)bar_index / num_segments;
 
         // Teleport the lighting source across the seam so the illusion's z-jump
-        // doesn't cast inconsistent shadows on the front/back bars.
-        vec3 illusory_light_pos = ball_local_pos;
-        float loop_length = num_segments * zStep;
-        if (ball_t - bar_t > 0.5f)       illusory_light_pos.z += loop_length;
-        else if (bar_t - ball_t > 0.5f)  illusory_light_pos.z -= loop_length;
+        // doesn't cast inconsistent shadows on the front/back bars. (Only
+        // when locked — otherwise we just use the far-away kill point.)
+        vec3 light_for_this_bar;
+        if (is_locked)
+        {
+            vec3 illusory_light_pos = ball_local_pos;
+            float loop_length = num_segments * zStep;
+            if (ball_t - bar_t > 0.5f)       illusory_light_pos.z += loop_length;
+            else if (bar_t - ball_t > 0.5f)  illusory_light_pos.z -= loop_length;
+            light_for_this_bar = illusory_light_pos;
+        }
+        else
+        {
+            light_for_this_bar = FAR_BALL;
+        }
 
-        vec4 wbp = global_spin * vec4(illusory_light_pos.x, illusory_light_pos.y, illusory_light_pos.z, 1.0f);
+        vec4 wbp = global_spin * vec4(light_for_this_bar.x, light_for_this_bar.y, light_for_this_bar.z, 1.0f);
         glUniform3fv(ball_pos_loc, 1, &wbp.x);
 
-        mat4 model = RotateZ(angle) * Translate(0.0f, radius, zDepth);
+        mat4 model = lock_scale_mat * RotateZ(angle) * Translate(0.0f, radius, zDepth);
         mat4 mvp   = viewProj * global_spin * model;
         mat4 world_model = global_spin * model;
 
@@ -469,36 +703,54 @@ void polygon_display()
         float zDepth_top = num_segments * zStep;  // bar 0's nominal z
         float zDepth_bot = 0.0f;                  // jumped-down z for right half
 
-        vec3 illusory_light_pos = ball_local_pos;
-        vec4 wbp = global_spin * vec4(illusory_light_pos.x, illusory_light_pos.y, illusory_light_pos.z, 1.0f);
-        glUniform3fv(ball_pos_loc, 1, &wbp.x);
+        // Bar 0's two halves are at VERY different z (top vs bottom). Each
+        // half deserves its own ball-light position so the dynamic light
+        // looks correct on both — using the same light position for both
+        // would over-bright one half and starve the other.
+        //
+        //   ball_t in [0, 0.5] → ball is on the "first half" of the loop
+        //       (bar 0 LEFT or descending the spiral). Light bar 0 LEFT
+        //       with the ball's actual position; teleport DOWN by loop_length
+        //       to light bar 0 RIGHT (so it gets the same illumination as
+        //       if the ball were on the bottom-z side of the loop).
+        //   ball_t in [0.5, 1] → ball is on the "second half" (ascending
+        //       toward bar 0 RIGHT). Mirror logic — light bar 0 RIGHT with
+        //       ball pos, teleport UP for bar 0 LEFT.
         glUniform1i(is_ball_loc, 0);
         glUniform1f(bar_t_loc, 0.0f);
 
         glBindVertexArray(half_segment_vao);
 
-        // Left half: shifted left by L/2 so its flat right-cut (local x=+L/2)
-        // lands at world x=0. Mitered left tip lands at world x=-L-dx_inner,
-        // exactly where a full bar 0's left mitered tip would be — joins the
-        // polygon corner shared with bar 1.
-        mat4 model_l = Translate(-L * 0.5f, radius, zDepth_top);
+        auto send_bar0_light = [&](float bar_t_eff) {
+            if (!is_locked) {
+                vec4 wbp = global_spin * vec4(FAR_BALL.x, FAR_BALL.y, FAR_BALL.z, 1.0f);
+                glUniform3fv(ball_pos_loc, 1, &wbp.x);
+                return;
+            }
+            vec3 light = ball_local_pos;
+            float loop_length = num_segments * zStep;
+            if (ball_t - bar_t_eff >  0.5f) light.z += loop_length;
+            else if (bar_t_eff - ball_t > 0.5f) light.z -= loop_length;
+            vec4 wbp = global_spin * vec4(light.x, light.y, light.z, 1.0f);
+            glUniform3fv(ball_pos_loc, 1, &wbp.x);
+        };
+
+        // Left half — bar 0 LEFT is the "start of the loop" (bar_t = 0).
+        send_bar0_light(0.0f);
+        mat4 model_l = lock_scale_mat * Translate(-L * 0.5f, radius, zDepth_top);
         mat4 mvp_l   = viewProj * global_spin * model_l;
         mat4 wmodel_l = global_spin * model_l;
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_l.d[0].x);
         glUniformMatrix4fv(model_loc, 1, GL_FALSE, &wmodel_l.d[0].x);
         draw_bar_tritone();
 
-        // Right half: same geometry flipped 180° on Z AND X so its mitered tip
-        // points to the +X side (joining bar N-1's corner) AND its inner edge
-        // (-y in local) stays on the polygon-interior side after the flip.
-        // Without RotateX(180), RotateZ(180) alone would also flip y, putting
-        // the inner edge outside the polygon. The combined flip is
-        //   (x, y, z) → (-x, y, -z)
-        // — inner/outer y preserved, ridge/bot z swapped (cosmetic, hex is
-        // symmetric), x mirrored. Translated to (+L/2, radius, 0) so its flat
-        // cut (originally at +L/2 → now at -L/2 → +0 after translate) meets
-        // the left half's cut at world x=0, on the BOTTOM z plane.
-        mat4 model_r = Translate(L * 0.5f, radius, zDepth_bot) * RotateZ(180.0f) * RotateX(180.0f);
+        // Right half — bar 0 RIGHT is the "end of the loop" (bar_t = 1).
+        // Flipped 180° on Z AND X so its mitered tip points to +X (joining
+        // bar N-1's corner) AND its inner edge stays on the polygon-interior
+        // side after the flip. Translated to (+L/2, radius, 0) so its flat
+        // cut meets the left half's at world x=0, on the BOTTOM z plane.
+        send_bar0_light(1.0f);
+        mat4 model_r = lock_scale_mat * Translate(L * 0.5f, radius, zDepth_bot) * RotateZ(180.0f) * RotateX(180.0f);
         mat4 mvp_r    = viewProj * global_spin * model_r;
         mat4 wmodel_r = global_spin * model_r;
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_r.d[0].x);
@@ -506,8 +758,10 @@ void polygon_display()
         draw_bar_tritone();
     }
 
-    // Ball
-    display_ball(viewProj, global_spin, ball_local_pos);
+    // Ball — only orbits / draws when the polygon is solved + locked.
+    // It's the "reward" indicator: solve it, and the little yellow ball runs
+    // around the impossible loop, jumping the seam invisibly.
+    if (is_locked) display_ball(viewProj, global_spin, ball_local_pos);
 
     glFinish();
 }
@@ -569,8 +823,14 @@ static void polygon_apply_pose_for(int n)
         return (float)((state >> 8) & 0xFFFFFFu) / (float)0x1000000 - 0.5f;  // [-0.5, 0.5)
     };
 
-    float jt = next_signed() * 1.6f;   // ±0.8 rad on theta
-    float jp = next_signed() * 1.0f;   // ±0.5 rad on phi
+    // Theta jitter must keep the starting pose CLEARLY off the magic YZ
+    // plane (|eye_x| > UNLOCK_EYEX_TOL), otherwise auto-snap fires on init
+    // and the player never gets to find the puzzle. Map [-0.5, 0.5] →
+    // [-0.85, -0.35] ∪ [0.35, 0.85] — guarantees |sin(jt)| ≥ sin(0.35) ≈
+    // 0.343, which gives |eye_x_unit| ≳ 0.30 > UNLOCK_EYEX_TOL (0.22).
+    float r  = next_signed();
+    float jt = (r >= 0.0f ? 1.0f : -1.0f) * (0.35f + fabsf(r) * 1.0f);
+    float jp = next_signed() * 1.0f;   // phi jitter unchanged (±0.5 rad)
 
     camera_radius = 0.5f;
     camera_theta  = M_PI / 2.0f + jt;
@@ -592,17 +852,64 @@ static void polygon_randomize_unsolved()
     polygon_apply_pose_for(num_segments);
 }
 
-// "Solved" pose for the S-key — snap the camera back to the magic ortho
-// angle where the depth-trick cuts align in 2D and the polygon reads as a
-// single closed loop. Preserves the CURRENT N (so the player sees the
-// random polygon they were given click into place at its own shape).
+// Compute the magic camera pose CLOSEST to the current one. The full magic
+// locus is eye_x = 0 (theta ≡ ±π/2, any phi), so we snap theta to whichever
+// of those two meridians is nearer and keep the user's current phi — that
+// way solving from the back doesn't teleport them around to the front.
+//
+// `out_theta` returned in [-π, π] for clean delta-lerp toward it.
+static void polygon_pick_nearest_magic_pose(float& out_theta, float& out_phi)
+{
+    // Pick the NEAREST magic meridian — front (+π/2) OR back (-π/2) — so
+    // the camera stays inside the YZ-plane locus where cuts are aligned.
+    // A snap from "back" to "front" would have the camera cross eye_x ≠ 0
+    // territory mid-animation and re-cut the figure visually; this avoids
+    // that by accepting a "B" pose (the back canonical view) as a valid
+    // solved pose. φ is locked to π/2 either way (canonical top-down).
+    float t = fmodf(camera_theta, 2.0f * (float)M_PI);
+    if (t >  (float)M_PI) t -= 2.0f * (float)M_PI;
+    if (t < -(float)M_PI) t += 2.0f * (float)M_PI;
+    float d_front = fabsf(t - 0.5f * (float)M_PI);
+    float d_back  = fabsf(t + 0.5f * (float)M_PI);
+    out_theta = (d_front <= d_back) ? 0.5f * (float)M_PI : -0.5f * (float)M_PI;
+    out_phi   = 0.5f * (float)M_PI;
+}
+
+// Kick off the smooth ease-in from the current camera pose to the NEAREST
+// magic pose (front or back). Called by S key (snaps to the canonical front
+// pose explicitly) and auto-fired when the user drags close to the magic
+// YZ-plane locus from either side.
+static void polygon_start_snap_animation()
+{
+    if (anim_snapping || is_locked) return;
+    polygon_pick_nearest_magic_pose(anim_target_theta, anim_target_phi);
+    // Wrap-normalise camera_theta so the lerp goes the SHORT way.
+    while (camera_theta - anim_target_theta >  (float)M_PI) camera_theta -= 2.0f * (float)M_PI;
+    while (camera_theta - anim_target_theta < -(float)M_PI) camera_theta += 2.0f * (float)M_PI;
+    anim_snapping    = true;
+    anim_start_time  = (float)glfwGetTime();
+    anim_start_theta = camera_theta;
+    anim_start_phi   = camera_phi;
+    global_spin_angle = 0.0f;
+    spin_momentum     = 0.0f;
+}
+
+// Drop out of the locked state — user wants to play with the figure again.
+// Called by R / SPACE / A and when the user drags well off the magic angle.
+static void polygon_cancel_lock()
+{
+    is_locked      = false;
+    anim_snapping  = false;
+}
+
+// "Solved" pose for the S-key — trigger the smooth animated snap to the
+// magic ortho angle (instant snap replaced with an ease-in). Preserves the
+// CURRENT N so the player sees the random polygon they were given click
+// into place at its own shape, complete with the lock pulse.
 static void polygon_solve()
 {
     camera_radius = 0.5f;
-    camera_theta  = M_PI / 2.0f;
-    camera_phi    = M_PI / 2.0f;
-    global_spin_angle = 0.0f;
-    spin_momentum     = 0.0f;
+    polygon_start_snap_animation();
 }
 
 // =============================================
@@ -616,10 +923,12 @@ void polygon_key_callback(GLFWwindow* window, int key, int scancode, int action,
             // SPACE: tap-to-grow. Adds an edge AND snaps the camera to the
             // new N's per-N unsolved pose — so each new polygon size starts
             // from its own fresh puzzle position. Hold also keeps the figure
-            // spinning (momentum-based spin from before).
+            // spinning (momentum-based spin from before). Cancels any active
+            // lock — new puzzle, fresh start.
             if (action == GLFW_PRESS)
             {
                 is_space_pressed = true;
+                polygon_cancel_lock();
                 polygon_set_constants(num_segments + 1);
                 polygon_apply_pose_for(num_segments);
             }
@@ -634,6 +943,7 @@ void polygon_key_callback(GLFWwindow* window, int key, int scancode, int action,
             {
                 if (num_segments > 3)
                 {
+                    polygon_cancel_lock();
                     polygon_set_constants(num_segments - 1);
                     polygon_apply_pose_for(num_segments);
                 }
@@ -642,7 +952,11 @@ void polygon_key_callback(GLFWwindow* window, int key, int scancode, int action,
         case GLFW_KEY_R:
             // R: snap back to THIS N's fixed unsolved pose (same one every
             // press for the same N — like defaultAngle* on slots 2-8).
-            if (action == GLFW_PRESS) polygon_apply_pose_for(num_segments);
+            if (action == GLFW_PRESS)
+            {
+                polygon_cancel_lock();
+                polygon_apply_pose_for(num_segments);
+            }
             break;
         case GLFW_KEY_S:
             // S: snap the camera back to the magic ortho angle. The depth
@@ -675,18 +989,24 @@ void polygon_mouseButtonCallback(GLFWwindow* window, int button, int action, int
 
 void polygon_cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 {
-    if (is_dragging)
-    {
-        double deltaX = xpos - last_mouse_x;
-        double deltaY = ypos - last_mouse_y;
+    if (!is_dragging) return;
 
-        last_mouse_x = xpos;
-        last_mouse_y = ypos;
+    // Always advance last_mouse so when the snap finishes the next drag
+    // delta doesn't have a giant accumulated jump baked in.
+    double deltaX = xpos - last_mouse_x;
+    double deltaY = ypos - last_mouse_y;
+    last_mouse_x = xpos;
+    last_mouse_y = ypos;
 
-        camera_theta -= deltaX * 0.01f;
-        camera_phi   += deltaY * 0.01f;
+    // While the snap animation is running, the camera is being interpolated
+    // by polygon_display every frame. Letting the cursor callback ALSO
+    // write camera_theta/phi creates a tug-of-war and the figure jitters
+    // through the lock. Drop drag input until the snap animation is done.
+    if (anim_snapping) return;
 
-        if (camera_phi < 0.01f)         camera_phi = 0.01f;
-        if (camera_phi > M_PI - 0.01f)  camera_phi = M_PI - 0.01f;
-    }
+    camera_theta -= deltaX * 0.01f;
+    camera_phi   += deltaY * 0.01f;
+
+    if (camera_phi < 0.01f)         camera_phi = 0.01f;
+    if (camera_phi > M_PI - 0.01f)  camera_phi = M_PI - 0.01f;
 }

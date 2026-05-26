@@ -7,6 +7,7 @@ uniform vec3  uLightPos;
 uniform vec3  uEyePos;
 uniform float uTime;        // for animating the gradient
 uniform float uObjHeight;   // world-space height of the object (for normalizing Y)
+uniform float uLockGlow;    // 0..1, brightness pulse when figure clicks into solved pose
 
 out vec4 outColor;
 
@@ -58,6 +59,12 @@ void main()
     float edge       = max(silhouette, crease);
     vec3  edgeColor  = vec3(0.04, 0.04, 0.07);
     litColor         = mix(litColor, edgeColor, edge);
+
+    // Lock-pulse glow: brief brightness bloom when the figure clicks into
+    // its solved pose. Driven by CPU-side uLockGlow which is bumped to ~0.4
+    // on solve and decays back to 0 over ~1s. Additive so it really pops.
+    litColor += vec3(uLockGlow);
+    litColor  = min(litColor, vec3(1.0));
 
     outColor = vec4(litColor, fragColor.a);
 }
