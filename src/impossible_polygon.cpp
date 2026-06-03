@@ -1,6 +1,8 @@
+#include <cstdlib>  // rand, srand
+#include <ctime>    // time
+
+#include "background.h"
 #include "includes.h"
-#include <cstdlib>   // rand, srand
-#include <ctime>     // time
 
 int num_segments = 3;
 
@@ -27,8 +29,8 @@ int num_segments = 3;
 // ─────────────────────────────────────────────────────────────────────────────
 
 float scale_factor = num_segments / 3.0f;
-float radius       = 0.70f * scale_factor;   // bumped (was 0.45) → longer edges, less chunky look
-float zStep        = 0.55f * scale_factor;   // depth-trick z-step per bar
+float radius = 0.70f * scale_factor;  // bumped (was 0.45) → longer edges, less chunky look
+float zStep = 0.55f * scale_factor;   // depth-trick z-step per bar
 
 // Bar thickness — slimmer to match the proportions of the Penrose Triangle /
 // Blocked Penrose figures (slots 2 & 3). Was 0.32 (chunky), dropped to 0.20.
@@ -48,33 +50,33 @@ GLuint segment_vao = 0, segment_vbo = 0, segment_nbo = 0;
 GLuint half_segment_vao = 0, half_segment_vbo = 0, half_segment_nbo = 0;
 
 GLuint program;
-GLint  mvp_loc;
-GLint  color_loc;
-GLint  light_pos_loc, eye_pos_loc, model_loc, bar_t_loc, base_color_loc;
-GLint  num_segments_loc;
+GLint mvp_loc;
+GLint color_loc;
+GLint light_pos_loc, eye_pos_loc, model_loc, bar_t_loc, base_color_loc;
+GLint num_segments_loc;
 
 // Ball
 float ball_t = 0.0f;  // 0.0 to 1.0, position along the loop
-const int   SPHERE_STACKS = 10;
-const int   SPHERE_SLICES = 10;
-const float BALL_RADIUS   = 0.04f;
+const int SPHERE_STACKS = 10;
+const int SPHERE_SLICES = 10;
+const float BALL_RADIUS = 0.04f;
 std::vector<vec3> sphere_vertices;
 std::vector<vec3> sphere_normals;
 GLuint sphere_vao = 0, sphere_vbo = 0, sphere_nbo_id = 0;
 GLuint ball_pos_loc = 0, is_ball_loc = 0;
 
 float camera_radius = 0.5f;
-float camera_theta  = M_PI / 2.0f;
-float camera_phi    = M_PI / 2.0f;
+float camera_theta = M_PI / 2.0f;
+float camera_phi = M_PI / 2.0f;
 
-bool   is_dragging   = false;
-double last_mouse_x  = 0.0;
-double last_mouse_y  = 0.0;
+bool is_dragging = false;
+double last_mouse_x = 0.0;
+double last_mouse_y = 0.0;
 
-bool  is_space_pressed   = false;
-float spin_momentum      = 0.0f;
-float global_spin_angle  = 0.0f;
-float last_frame_time    = 0.0f;
+bool is_space_pressed = false;
+float spin_momentum = 0.0f;
+float global_spin_angle = 0.0f;
+float last_frame_time = 0.0f;
 
 // ─── "You solved it!" animation state ───────────────────────────────────────
 // Two phases:
@@ -84,22 +86,22 @@ float last_frame_time    = 0.0f;
 // Triggered by S key OR auto-triggered when the user drags the camera within
 // a small tolerance of the magic angle. Cancelled by R / SPACE / A or by the
 // user dragging the camera back out of tolerance.
-static bool  anim_snapping       = false;
-static float anim_start_time     = 0.0f;
-static float anim_start_theta    = 0.0f;
-static float anim_start_phi      = 0.0f;
+static bool anim_snapping = false;
+static float anim_start_time = 0.0f;
+static float anim_start_theta = 0.0f;
+static float anim_start_phi = 0.0f;
 // The actual target pose for the in-flight snap animation AND the pinned
 // pose while is_locked is true. The "magic" condition is a whole 1-param
 // family (eye_x = 0 — see below), not a single angle, so when the player
 // finds the alignment from the BACK side we lock there instead of teleport-
 // ing them to the front.
-static float anim_target_theta   = 0.0f;
-static float anim_target_phi     = 0.0f;
-static constexpr float ANIM_SNAP_DURATION = 0.85f;   // seconds — camera ease-in (longer for smoother feel)
+static float anim_target_theta = 0.0f;
+static float anim_target_phi = 0.0f;
+static constexpr float ANIM_SNAP_DURATION = 0.85f;  // seconds — camera ease-in (longer for smoother feel)
 
-static bool  is_locked           = false;
-static float lock_start_time     = 0.0f;
-static constexpr float LOCK_PULSE_DURATION = 1.0f;   // seconds — bump+glow window
+static bool is_locked = false;
+static float lock_start_time = 0.0f;
+static constexpr float LOCK_PULSE_DURATION = 1.0f;  // seconds — bump+glow window
 
 // The depth-trick cuts on bar 0's two halves are flat planes perpendicular
 // to the X axis. They project to a single vertical screen line — making the
@@ -111,14 +113,14 @@ static constexpr float LOCK_PULSE_DURATION = 1.0f;   // seconds — bump+glow wi
 // 3π/2 (back meridian), with any φ. So we detect alignment by |eye_x|, and
 // snap to whichever meridian (front/back) is closer.
 static constexpr float CANONICAL_THETA = M_PI / 2.0f;
-static constexpr float CANONICAL_PHI   = M_PI / 2.0f;
+static constexpr float CANONICAL_PHI = M_PI / 2.0f;
 
 // Tolerance is now on eye_x magnitude (proportional to camera_radius).
 // Tightened — the helper was too aggressive, snapping in before the player
 // felt they'd actually FOUND the angle. 0.035 ≈ 2.0° off the magic YZ
 // plane, which is "you just got it" territory.
 static constexpr float AUTO_SNAP_EYEX_TOL = 0.035f;
-static constexpr float UNLOCK_EYEX_TOL    = 0.18f;   // hysteresis (room to escape)
+static constexpr float UNLOCK_EYEX_TOL = 0.18f;  // hysteresis (room to escape)
 
 // Forward decls — bodies live further down with the keyboard handler.
 static unsigned g_polygon_session_seed = 0;
@@ -154,12 +156,18 @@ void generate_sphere()
                 vec3(sinf(phi1) * cosf(theta2), cosf(phi1), sinf(phi1) * sinf(theta2)),
             };
 
-            sphere_vertices.push_back(v[0]); sphere_normals.push_back(v[0]);
-            sphere_vertices.push_back(v[1]); sphere_normals.push_back(v[1]);
-            sphere_vertices.push_back(v[2]); sphere_normals.push_back(v[2]);
-            sphere_vertices.push_back(v[0]); sphere_normals.push_back(v[0]);
-            sphere_vertices.push_back(v[2]); sphere_normals.push_back(v[2]);
-            sphere_vertices.push_back(v[3]); sphere_normals.push_back(v[3]);
+            sphere_vertices.push_back(v[0]);
+            sphere_normals.push_back(v[0]);
+            sphere_vertices.push_back(v[1]);
+            sphere_normals.push_back(v[1]);
+            sphere_vertices.push_back(v[2]);
+            sphere_normals.push_back(v[2]);
+            sphere_vertices.push_back(v[0]);
+            sphere_normals.push_back(v[0]);
+            sphere_vertices.push_back(v[2]);
+            sphere_normals.push_back(v[2]);
+            sphere_vertices.push_back(v[3]);
+            sphere_normals.push_back(v[3]);
         }
     }
 }
@@ -200,67 +208,89 @@ static void set_face_normal(vec3* normals, int start_idx, vec3 a, vec3 b, vec3 c
 // `L_left`/`L_right`: tip half-lengths. `mitre_*`: true → tip is mitered
 // outward by dx_inner / dx_outer to fit the polygon corner; false → flat
 // vertical cut (used for the two halves of bar 0).
-static void build_bar_geometry(vec3* out_verts, vec3* out_norms,
-                               int n_segments, float radius, float thickness,
-                               float L_left, float L_right,
-                               bool mitre_left, bool mitre_right)
+static void build_bar_geometry(vec3* out_verts, vec3* out_norms, int n_segments, float radius, float thickness,
+                               float L_left, float L_right, bool mitre_left, bool mitre_right)
 {
     float half_thick = thickness / 2.0f;
-    float ridge_z    = half_thick;
+    float ridge_z = half_thick;
 
-    float dx_inner  = (half_thick / sinf(2 * M_PI / n_segments)) - (half_thick * tanf(M_PI / n_segments));
+    float dx_inner = (half_thick / sinf(2 * M_PI / n_segments)) - (half_thick * tanf(M_PI / n_segments));
     float dx_center = (half_thick / sinf(2 * M_PI / n_segments));
-    float dx_outer  = (half_thick / sinf(2 * M_PI / n_segments)) - (half_thick / tanf(2 * M_PI / n_segments));
+    float dx_outer = (half_thick / sinf(2 * M_PI / n_segments)) - (half_thick / tanf(2 * M_PI / n_segments));
 
-    float dxi_L = mitre_left  ? dx_inner  : 0.0f;
-    float dxc_L = mitre_left  ? dx_center : 0.0f;
-    float dxo_L = mitre_left  ? dx_outer  : 0.0f;
-    float dxi_R = mitre_right ? dx_inner  : 0.0f;
+    float dxi_L = mitre_left ? dx_inner : 0.0f;
+    float dxc_L = mitre_left ? dx_center : 0.0f;
+    float dxo_L = mitre_left ? dx_outer : 0.0f;
+    float dxi_R = mitre_right ? dx_inner : 0.0f;
     float dxc_R = mitre_right ? dx_center : 0.0f;
-    float dxo_R = mitre_right ? dx_outer  : 0.0f;
+    float dxo_R = mitre_right ? dx_outer : 0.0f;
 
-    vec3 v_in_L  = vec3(-L_left  - dxi_L, -half_thick, 0.0f);
-    vec3 v_in_R  = vec3( L_right + dxi_R, -half_thick, 0.0f);
+    vec3 v_in_L = vec3(-L_left - dxi_L, -half_thick, 0.0f);
+    vec3 v_in_R = vec3(L_right + dxi_R, -half_thick, 0.0f);
 
-    vec3 v_rid_L = vec3(-L_left  - dxc_L, 0.0f,  ridge_z);
-    vec3 v_rid_R = vec3( L_right + dxc_R, 0.0f,  ridge_z);
-    vec3 v_bot_L = vec3(-L_left  - dxc_L, 0.0f, -ridge_z);
-    vec3 v_bot_R = vec3( L_right + dxc_R, 0.0f, -ridge_z);
+    vec3 v_rid_L = vec3(-L_left - dxc_L, 0.0f, ridge_z);
+    vec3 v_rid_R = vec3(L_right + dxc_R, 0.0f, ridge_z);
+    vec3 v_bot_L = vec3(-L_left - dxc_L, 0.0f, -ridge_z);
+    vec3 v_bot_R = vec3(L_right + dxc_R, 0.0f, -ridge_z);
 
-    vec3 v_out_L = vec3(-L_left  - dxo_L,  half_thick, 0.0f);
-    vec3 v_out_R = vec3( L_right + dxo_R,  half_thick, 0.0f);
+    vec3 v_out_L = vec3(-L_left - dxo_L, half_thick, 0.0f);
+    vec3 v_out_R = vec3(L_right + dxo_R, half_thick, 0.0f);
 
     int idx = 0;
     // Top inner
-    out_verts[idx++] = v_in_L;  out_verts[idx++] = v_in_R;  out_verts[idx++] = v_rid_R;
-    out_verts[idx++] = v_in_L;  out_verts[idx++] = v_rid_R; out_verts[idx++] = v_rid_L;
+    out_verts[idx++] = v_in_L;
+    out_verts[idx++] = v_in_R;
+    out_verts[idx++] = v_rid_R;
+    out_verts[idx++] = v_in_L;
+    out_verts[idx++] = v_rid_R;
+    out_verts[idx++] = v_rid_L;
     // Top outer
-    out_verts[idx++] = v_rid_L; out_verts[idx++] = v_rid_R; out_verts[idx++] = v_out_R;
-    out_verts[idx++] = v_rid_L; out_verts[idx++] = v_out_R; out_verts[idx++] = v_out_L;
+    out_verts[idx++] = v_rid_L;
+    out_verts[idx++] = v_rid_R;
+    out_verts[idx++] = v_out_R;
+    out_verts[idx++] = v_rid_L;
+    out_verts[idx++] = v_out_R;
+    out_verts[idx++] = v_out_L;
     // Bottom outer
-    out_verts[idx++] = v_out_L; out_verts[idx++] = v_out_R; out_verts[idx++] = v_bot_R;
-    out_verts[idx++] = v_out_L; out_verts[idx++] = v_bot_R; out_verts[idx++] = v_bot_L;
+    out_verts[idx++] = v_out_L;
+    out_verts[idx++] = v_out_R;
+    out_verts[idx++] = v_bot_R;
+    out_verts[idx++] = v_out_L;
+    out_verts[idx++] = v_bot_R;
+    out_verts[idx++] = v_bot_L;
     // Bottom inner
-    out_verts[idx++] = v_bot_L; out_verts[idx++] = v_bot_R; out_verts[idx++] = v_in_R;
-    out_verts[idx++] = v_bot_L; out_verts[idx++] = v_in_R;  out_verts[idx++] = v_in_L;
+    out_verts[idx++] = v_bot_L;
+    out_verts[idx++] = v_bot_R;
+    out_verts[idx++] = v_in_R;
+    out_verts[idx++] = v_bot_L;
+    out_verts[idx++] = v_in_R;
+    out_verts[idx++] = v_in_L;
     // Left tip
-    out_verts[idx++] = v_in_L;  out_verts[idx++] = v_rid_L; out_verts[idx++] = v_bot_L;
-    out_verts[idx++] = v_rid_L; out_verts[idx++] = v_bot_L; out_verts[idx++] = v_out_L;
+    out_verts[idx++] = v_in_L;
+    out_verts[idx++] = v_rid_L;
+    out_verts[idx++] = v_bot_L;
+    out_verts[idx++] = v_rid_L;
+    out_verts[idx++] = v_bot_L;
+    out_verts[idx++] = v_out_L;
     // Right tip
-    out_verts[idx++] = v_in_R;  out_verts[idx++] = v_rid_R; out_verts[idx++] = v_bot_R;
-    out_verts[idx++] = v_rid_R; out_verts[idx++] = v_bot_R; out_verts[idx++] = v_out_R;
+    out_verts[idx++] = v_in_R;
+    out_verts[idx++] = v_rid_R;
+    out_verts[idx++] = v_bot_R;
+    out_verts[idx++] = v_rid_R;
+    out_verts[idx++] = v_bot_R;
+    out_verts[idx++] = v_out_R;
 
-    set_face_normal(out_norms,  0, v_in_L,  v_in_R,  v_rid_R);
-    set_face_normal(out_norms,  3, v_in_L,  v_rid_R, v_rid_L);
-    set_face_normal(out_norms,  6, v_rid_L, v_rid_R, v_out_R);
-    set_face_normal(out_norms,  9, v_rid_L, v_out_R, v_out_L);
+    set_face_normal(out_norms, 0, v_in_L, v_in_R, v_rid_R);
+    set_face_normal(out_norms, 3, v_in_L, v_rid_R, v_rid_L);
+    set_face_normal(out_norms, 6, v_rid_L, v_rid_R, v_out_R);
+    set_face_normal(out_norms, 9, v_rid_L, v_out_R, v_out_L);
     set_face_normal(out_norms, 12, v_out_L, v_out_R, v_bot_R);
     set_face_normal(out_norms, 15, v_out_L, v_bot_R, v_bot_L);
     set_face_normal(out_norms, 18, v_bot_L, v_bot_R, v_in_R);
-    set_face_normal(out_norms, 21, v_bot_L, v_in_R,  v_in_L);
-    set_face_normal(out_norms, 24, v_in_L,  v_rid_L, v_bot_L);
+    set_face_normal(out_norms, 21, v_bot_L, v_in_R, v_in_L);
+    set_face_normal(out_norms, 24, v_in_L, v_rid_L, v_bot_L);
     set_face_normal(out_norms, 27, v_rid_L, v_bot_L, v_out_L);
-    set_face_normal(out_norms, 30, v_in_R,  v_rid_R, v_bot_R);
+    set_face_normal(out_norms, 30, v_in_R, v_rid_R, v_bot_R);
     set_face_normal(out_norms, 33, v_rid_R, v_bot_R, v_out_R);
 }
 
@@ -269,16 +299,14 @@ void polygon_create_solid_segment(int n_segments, float radius, float thickness)
     float L = radius * tanf(M_PI / n_segments);
 
     // Full bar: mitered on both ends (joins polygon corners on both sides).
-    build_bar_geometry(segment_vertices, segment_normals,
-                       n_segments, radius, thickness,
-                       L, L, /*mitre_left=*/true, /*mitre_right=*/true);
+    build_bar_geometry(segment_vertices, segment_normals, n_segments, radius, thickness, L, L, /*mitre_left=*/true,
+                       /*mitre_right=*/true);
 
     // Half bar: half-length on each side. Mitered LEFT tip (joins a polygon
     // corner like a normal bar), FLAT-CUT right tip at local x=+L/2 (the
     // bisect cut where two halves of bar 0 will visually align in screen-x).
-    build_bar_geometry(half_segment_vertices, half_segment_normals,
-                       n_segments, radius, thickness,
-                       L * 0.5f, L * 0.5f, /*mitre_left=*/true, /*mitre_right=*/false);
+    build_bar_geometry(half_segment_vertices, half_segment_normals, n_segments, radius, thickness, L * 0.5f, L * 0.5f,
+                       /*mitre_left=*/true, /*mitre_right=*/false);
 }
 
 void polygon_init()
@@ -308,18 +336,18 @@ void polygon_init()
         exit(1);
     }
 
-    GLint loc        = glGetAttribLocation(program, "vPosition");
+    GLint loc = glGetAttribLocation(program, "vPosition");
     GLint normal_loc = glGetAttribLocation(program, "vNormal");
-    color_loc        = glGetUniformLocation(program, "uFaceColor");
-    mvp_loc          = glGetUniformLocation(program, "MVP");
-    light_pos_loc    = glGetUniformLocation(program, "uLightPos");
-    eye_pos_loc      = glGetUniformLocation(program, "uEyePos");
-    model_loc        = glGetUniformLocation(program, "uModel");
-    bar_t_loc        = glGetUniformLocation(program, "uBarT");
-    base_color_loc   = glGetUniformLocation(program, "uBaseColor");
+    color_loc = glGetUniformLocation(program, "uFaceColor");
+    mvp_loc = glGetUniformLocation(program, "MVP");
+    light_pos_loc = glGetUniformLocation(program, "uLightPos");
+    eye_pos_loc = glGetUniformLocation(program, "uEyePos");
+    model_loc = glGetUniformLocation(program, "uModel");
+    bar_t_loc = glGetUniformLocation(program, "uBarT");
+    base_color_loc = glGetUniformLocation(program, "uBaseColor");
     num_segments_loc = glGetUniformLocation(program, "uNumSegments");
-    ball_pos_loc     = glGetUniformLocation(program, "uBallPos");
-    is_ball_loc      = glGetUniformLocation(program, "uIsBall");
+    ball_pos_loc = glGetUniformLocation(program, "uBallPos");
+    is_ball_loc = glGetUniformLocation(program, "uIsBall");
 
     // Full-bar VAO
     glGenVertexArrays(1, &segment_vao);
@@ -377,6 +405,9 @@ void polygon_init()
     // in the "unsolved" pose — player has to press S to snap it back to the
     // magic angle and see the illusion click.
     polygon_randomize_unsolved();
+
+    // Initialize the Escher background for when the polygon is solved
+    bg_init_escher();
 }
 
 // =============================================
@@ -390,7 +421,7 @@ void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos)
 
     mat4 ball_translate =
         Translate(local_pos.x, local_pos.y, local_pos.z) * Scale(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS);
-    mat4 ball_mvp   = viewProj * global_spin * ball_translate;
+    mat4 ball_mvp = viewProj * global_spin * ball_translate;
     mat4 ball_model = global_spin * ball_translate;
 
     glBindVertexArray(sphere_vao);
@@ -432,18 +463,19 @@ void polygon_display()
     float view_size = scale_factor + 0.5f;
     // Aspect-correct ortho so the polygon doesn't squash on non-square windows.
     float aspect = (screen_w > 0 && screen_h > 0) ? (float)screen_w / (float)screen_h : 1.0f;
-    mat4 proj = Ortho(-view_size * aspect, view_size * aspect,
-                      -view_size,          view_size,
-                      -1000.0f, 1000.0f);
+    mat4 proj = Ortho(-view_size * aspect, view_size * aspect, -view_size, view_size, -1000.0f, 1000.0f);
 
     float current_time = glfwGetTime();
 
     glUseProgram(program);
 
+    // Begin background rendering (binds framebuffer and clears)
+    bg_begin_scene();
+
     // --- SPIN MATH (hold SPACE → momentum spin) ---
     if (last_frame_time == 0.0f) last_frame_time = current_time;
     float delta_time = current_time - last_frame_time;
-    last_frame_time  = current_time;
+    last_frame_time = current_time;
 
     if (is_space_pressed)
     {
@@ -469,15 +501,16 @@ void polygon_display()
     // (eye_x = 0) AND φ near π/2 so LookAt doesn't go degenerate (which
     // happens when up is parallel to view direction, near φ = 0 or π).
     float eye_x_unit = sinf(camera_phi) * cosf(camera_theta);
-    float eye_y_unit = cosf(camera_phi);                        // = 0 at φ = π/2
+    float eye_y_unit = cosf(camera_phi);  // = 0 at φ = π/2
 
     if (anim_snapping)
     {
         float t = (current_time - anim_start_time) / ANIM_SNAP_DURATION;
-        if (t >= 1.0f) {
+        if (t >= 1.0f)
+        {
             t = 1.0f;
-            anim_snapping  = false;
-            is_locked      = true;
+            anim_snapping = false;
+            is_locked = true;
             lock_start_time = current_time;
         }
         // Smootherstep (Ken Perlin's improved smoothstep) — zero velocity AND
@@ -485,7 +518,7 @@ void polygon_display()
         // smoother than ease-out cubic, which has a noticeably abrupt start.
         float et = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
         camera_theta = anim_start_theta + (anim_target_theta - anim_start_theta) * et;
-        camera_phi   = anim_start_phi   + (anim_target_phi   - anim_start_phi)   * et;
+        camera_phi = anim_start_phi + (anim_target_phi - anim_start_phi) * et;
     }
     else if (!is_locked && !is_space_pressed)
     {
@@ -494,37 +527,38 @@ void polygon_display()
         // illusion will look clean once we snap (no LookAt degeneracy).
         // Tightened phi-band too (was 0.30) — the player has to find the
         // pose, not just drift in its general direction.
-        if (fabsf(eye_x_unit) < AUTO_SNAP_EYEX_TOL && fabsf(eye_y_unit) < 0.15f)
-            polygon_start_snap_animation();
+        if (fabsf(eye_x_unit) < AUTO_SNAP_EYEX_TOL && fabsf(eye_y_unit) < 0.15f) polygon_start_snap_animation();
     }
     else if (is_locked && is_dragging)
     {
         // Locked + dragging out of either tolerance → release.
-        if (fabsf(eye_x_unit) > UNLOCK_EYEX_TOL || fabsf(eye_y_unit) > 0.40f)
-            is_locked = false;
+        if (fabsf(eye_x_unit) > UNLOCK_EYEX_TOL || fabsf(eye_y_unit) > 0.40f) is_locked = false;
     }
 
     // While locked, the camera is held at whichever magic pose we snapped
     // to (front OR back) so the player can't accidentally drift off it
     // during the celebration pulse.
-    if (is_locked) {
+    if (is_locked)
+    {
         camera_theta = anim_target_theta;
-        camera_phi   = anim_target_phi;
+        camera_phi = anim_target_phi;
     }
 
     // Lock-pulse factors driven by elapsed time since lock latched. Fades to
     // zero after LOCK_PULSE_DURATION so the figure settles to its normal look.
     float lock_scale = 1.0f;
-    float lock_glow  = 0.0f;
-    if (is_locked) {
+    float lock_glow = 0.0f;
+    if (is_locked)
+    {
         float lt = (current_time - lock_start_time) / LOCK_PULSE_DURATION;
-        if (lt < 1.0f) {
+        if (lt < 1.0f)
+        {
             // Critically-damped overshoot: bump up, settle back to 1.
             //   bump(t) = sin(π t) * (1 - t)   → peaks ~0.385 at t≈0.3
-            float bump  = sinf((float)M_PI * lt) * (1.0f - lt);
+            float bump = sinf((float)M_PI * lt) * (1.0f - lt);
             lock_scale = 1.0f + 0.08f * bump;
             // Glow rides the bump but fades out faster.
-            lock_glow  = 0.45f * bump;
+            lock_glow = 0.45f * bump;
         }
     }
 
@@ -552,11 +586,18 @@ void polygon_display()
     glUniform3fv(eye_pos_loc, 1, &eye.x);
     glUniform1i(num_segments_loc, num_segments);
 
-    // --- Ball position along the loop ---
-    // Ball only orbits while the polygon is LOCKED (solved). When unlocked
-    // we hold ball_t at 0 so the next solve always starts the orbit cleanly
-    // from the same spot. The draw call at the bottom of polygon_display
-    // similarly only fires when is_locked is true.
+    // Draw the Escher background first (so it appears behind the polygon)
+    // Calculate camera info for the background
+    vec3 cam_right = normalize(cross(vec3(0, 1, 0), normalize(eye - at)));
+    vec3 cam_up = normalize(cross(normalize(eye - at), cam_right));
+    vec3 cam_forward = normalize(eye - at);
+
+    bg_draw_escher(eye, cam_right, cam_up, cam_forward, view_size, current_time);
+
+    // Switch back to polygon program for rendering
+    glUseProgram(program);
+
+    // Draw the Escher background when the polygon is solved
     if (is_locked)
     {
         ball_t += delta_time * 0.25f;
@@ -567,7 +608,7 @@ void polygon_display()
         ball_t = 0.0f;
     }
 
-    float thickness  = POLYGON_BAR_THICKNESS * scale_factor;
+    float thickness = POLYGON_BAR_THICKNESS * scale_factor;
     float half_thick = thickness / 2.0f;
     float ball_angle = ball_t * 2.0f * M_PI;
 
@@ -588,9 +629,12 @@ void polygon_display()
     float bar_z;
     {
         int k = (int)floorf(ball_t * (float)num_segments + 0.5f);
-        if      (k == 0)             bar_z = num_segments * zStep;   // bar 0 LEFT
-        else if (k >= num_segments)  bar_z = 0.0f;                   // bar 0 RIGHT
-        else                         bar_z = (num_segments - k) * zStep;
+        if (k == 0)
+            bar_z = num_segments * zStep;  // bar 0 LEFT
+        else if (k >= num_segments)
+            bar_z = 0.0f;  // bar 0 RIGHT
+        else
+            bar_z = (num_segments - k) * zStep;
     }
 
     // The diamond cross-section has 4 slanted faces — no flat horizontal
@@ -602,15 +646,15 @@ void polygon_display()
     //   outer  (y=+half_thick, z=0).
     // Its midpoint is (y, z) = (half_thick/2, half_thick/2), normal is
     // (0, 1, 1)/√2. Ball center = midpoint + BALL_RADIUS * normal.
-    const float HALF_SQRT2 = 0.70710678f;  // 1/√2
+    const float HALF_SQRT2 = 0.70710678f;                                      // 1/√2
     float ball_local_y_offset = half_thick * 0.5f + BALL_RADIUS * HALF_SQRT2;  // radial outward
     float ball_local_z_offset = half_thick * 0.5f + BALL_RADIUS * HALF_SQRT2;  // upward
 
     float segment_angle = 2.0f * M_PI / num_segments;
-    float nearest_bar   = roundf(ball_angle / segment_angle) * segment_angle;
-    float delta_angle   = ball_angle - nearest_bar;
+    float nearest_bar = roundf(ball_angle / segment_angle) * segment_angle;
+    float delta_angle = ball_angle - nearest_bar;
     // Polygon-outline radius scaled outward to put the ball on top-outer.
-    float r_poly        = (radius + ball_local_y_offset) / cosf(delta_angle);
+    float r_poly = (radius + ball_local_y_offset) / cosf(delta_angle);
 
     float ball_local_z = bar_z + ball_local_z_offset;
     vec3 ball_local_pos(-r_poly * sinf(ball_angle), r_poly * cosf(ball_angle), ball_local_z);
@@ -620,13 +664,14 @@ void polygon_display()
     // deep blue, ...). Slot 1 gets a sage-green family — a unique hue in
     // the lineup, matched in STRUCTURE to slot 2's 3-tone (top / bottom /
     // tip-caps) so the figure visually belongs to the same set.
-    vec3 topColor(0.74f, 0.88f, 0.74f);   // top faces  — light sage
-    vec3 botColor(0.50f, 0.72f, 0.56f);   // bottom     — medium pine
-    vec3 tipColor(0.36f, 0.56f, 0.44f);   // end caps   — deep forest
+    vec3 topColor(0.74f, 0.88f, 0.74f);  // top faces  — light sage
+    vec3 botColor(0.50f, 0.72f, 0.56f);  // bottom     — medium pine
+    vec3 tipColor(0.36f, 0.56f, 0.44f);  // end caps   — deep forest
 
     // While locked, brighten the palette by lock_glow so the figure visibly
     // pulses. Clamp to [0,1] so we don't blow out the shader.
-    auto add_glow = [&](vec3 c) {
+    auto add_glow = [&](vec3 c)
+    {
         c.x = fminf(1.0f, c.x + lock_glow);
         c.y = fminf(1.0f, c.y + lock_glow);
         c.z = fminf(1.0f, c.z + lock_glow);
@@ -639,10 +684,14 @@ void polygon_display()
     // Helper: draw one bar's faces in 3 colored chunks (12 verts each:
     // 0..11 = top faces, 12..23 = bottom faces, 24..35 = tip caps).
     // Matches the simple 3-tone look of slot 2's Penrose Triangle.
-    auto draw_bar_tritone = [&]() {
-        glUniform3fv(base_color_loc, 1, &topC.x); glDrawArrays(GL_TRIANGLES,  0, 12);
-        glUniform3fv(base_color_loc, 1, &botC.x); glDrawArrays(GL_TRIANGLES, 12, 12);
-        glUniform3fv(base_color_loc, 1, &tipC.x); glDrawArrays(GL_TRIANGLES, 24, 12);
+    auto draw_bar_tritone = [&]()
+    {
+        glUniform3fv(base_color_loc, 1, &topC.x);
+        glDrawArrays(GL_TRIANGLES, 0, 12);
+        glUniform3fv(base_color_loc, 1, &botC.x);
+        glDrawArrays(GL_TRIANGLES, 12, 12);
+        glUniform3fv(base_color_loc, 1, &tipC.x);
+        glDrawArrays(GL_TRIANGLES, 24, 12);
     };
 
     float L = radius * tanf(M_PI / num_segments);
@@ -656,9 +705,9 @@ void polygon_display()
     // Bars 1 .. N-1 — full mitered segments, spiraling down in z.
     for (int bar_index = 1; bar_index < num_segments; bar_index++)
     {
-        float angle  = bar_index * (360.0f / num_segments);
+        float angle = bar_index * (360.0f / num_segments);
         float zDepth = -bar_index * zStep + (num_segments * zStep);
-        float bar_t  = (float)bar_index / num_segments;
+        float bar_t = (float)bar_index / num_segments;
 
         // Teleport the lighting source across the seam so the illusion's z-jump
         // doesn't cast inconsistent shadows on the front/back bars. (Only
@@ -668,8 +717,10 @@ void polygon_display()
         {
             vec3 illusory_light_pos = ball_local_pos;
             float loop_length = num_segments * zStep;
-            if (ball_t - bar_t > 0.5f)       illusory_light_pos.z += loop_length;
-            else if (bar_t - ball_t > 0.5f)  illusory_light_pos.z -= loop_length;
+            if (ball_t - bar_t > 0.5f)
+                illusory_light_pos.z += loop_length;
+            else if (bar_t - ball_t > 0.5f)
+                illusory_light_pos.z -= loop_length;
             light_for_this_bar = illusory_light_pos;
         }
         else
@@ -681,7 +732,7 @@ void polygon_display()
         glUniform3fv(ball_pos_loc, 1, &wbp.x);
 
         mat4 model = lock_scale_mat * RotateZ(angle) * Translate(0.0f, radius, zDepth);
-        mat4 mvp   = viewProj * global_spin * model;
+        mat4 mvp = viewProj * global_spin * model;
         mat4 world_model = global_spin * model;
 
         glBindVertexArray(segment_vao);
@@ -721,16 +772,20 @@ void polygon_display()
 
         glBindVertexArray(half_segment_vao);
 
-        auto send_bar0_light = [&](float bar_t_eff) {
-            if (!is_locked) {
+        auto send_bar0_light = [&](float bar_t_eff)
+        {
+            if (!is_locked)
+            {
                 vec4 wbp = global_spin * vec4(FAR_BALL.x, FAR_BALL.y, FAR_BALL.z, 1.0f);
                 glUniform3fv(ball_pos_loc, 1, &wbp.x);
                 return;
             }
             vec3 light = ball_local_pos;
             float loop_length = num_segments * zStep;
-            if (ball_t - bar_t_eff >  0.5f) light.z += loop_length;
-            else if (bar_t_eff - ball_t > 0.5f) light.z -= loop_length;
+            if (ball_t - bar_t_eff > 0.5f)
+                light.z += loop_length;
+            else if (bar_t_eff - ball_t > 0.5f)
+                light.z -= loop_length;
             vec4 wbp = global_spin * vec4(light.x, light.y, light.z, 1.0f);
             glUniform3fv(ball_pos_loc, 1, &wbp.x);
         };
@@ -738,7 +793,7 @@ void polygon_display()
         // Left half — bar 0 LEFT is the "start of the loop" (bar_t = 0).
         send_bar0_light(0.0f);
         mat4 model_l = lock_scale_mat * Translate(-L * 0.5f, radius, zDepth_top);
-        mat4 mvp_l   = viewProj * global_spin * model_l;
+        mat4 mvp_l = viewProj * global_spin * model_l;
         mat4 wmodel_l = global_spin * model_l;
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_l.d[0].x);
         glUniformMatrix4fv(model_loc, 1, GL_FALSE, &wmodel_l.d[0].x);
@@ -751,7 +806,7 @@ void polygon_display()
         // cut meets the left half's at world x=0, on the BOTTOM z plane.
         send_bar0_light(1.0f);
         mat4 model_r = lock_scale_mat * Translate(L * 0.5f, radius, zDepth_bot) * RotateZ(180.0f) * RotateX(180.0f);
-        mat4 mvp_r    = viewProj * global_spin * model_r;
+        mat4 mvp_r = viewProj * global_spin * model_r;
         mat4 wmodel_r = global_spin * model_r;
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_r.d[0].x);
         glUniformMatrix4fv(model_loc, 1, GL_FALSE, &wmodel_r.d[0].x);
@@ -762,6 +817,9 @@ void polygon_display()
     // It's the "reward" indicator: solve it, and the little yellow ball runs
     // around the impossible loop, jumping the seam invisibly.
     if (is_locked) display_ball(viewProj, global_spin, ball_local_pos);
+
+    // End background rendering (applies bloom and outputs to screen)
+    bg_end_scene();
 
     glFinish();
 }
@@ -778,8 +836,8 @@ void polygon_set_constants(int n_segments)
     num_segments = n_segments;
 
     scale_factor = n_segments / 3.0f;
-    radius       = 0.70f * scale_factor;  // matches file-scope default
-    zStep        = 0.55f * scale_factor;  // matches file-scope default (dramatic spiral)
+    radius = 0.70f * scale_factor;  // matches file-scope default
+    zStep = 0.55f * scale_factor;   // matches file-scope default (dramatic spiral)
 
     polygon_create_solid_segment(n_segments, radius, POLYGON_BAR_THICKNESS * scale_factor);
 
@@ -818,7 +876,8 @@ void polygon_set_constants(int n_segments)
 static void polygon_apply_pose_for(int n)
 {
     unsigned state = g_polygon_session_seed ^ ((unsigned)n * 2654435761u);
-    auto next_signed = [&state]() {
+    auto next_signed = [&state]()
+    {
         state = state * 1103515245u + 12345u;
         return (float)((state >> 8) & 0xFFFFFFu) / (float)0x1000000 - 0.5f;  // [-0.5, 0.5)
     };
@@ -828,29 +887,26 @@ static void polygon_apply_pose_for(int n)
     // and the player never gets to find the puzzle. Map [-0.5, 0.5] →
     // [-0.85, -0.35] ∪ [0.35, 0.85] — guarantees |sin(jt)| ≥ sin(0.35) ≈
     // 0.343, which gives |eye_x_unit| ≳ 0.30 > UNLOCK_EYEX_TOL (0.22).
-    float r  = next_signed();
+    float r = next_signed();
     float jt = (r >= 0.0f ? 1.0f : -1.0f) * (0.35f + fabsf(r) * 1.0f);
-    float jp = next_signed() * 1.0f;   // phi jitter unchanged (±0.5 rad)
+    float jp = next_signed() * 1.0f;  // phi jitter unchanged (±0.5 rad)
 
     camera_radius = 0.5f;
-    camera_theta  = M_PI / 2.0f + jt;
-    camera_phi    = M_PI / 2.0f + jp;
-    if (camera_phi < 0.15f)         camera_phi = 0.15f;
-    if (camera_phi > M_PI - 0.15f)  camera_phi = M_PI - 0.15f;
+    camera_theta = M_PI / 2.0f + jt;
+    camera_phi = M_PI / 2.0f + jp;
+    if (camera_phi < 0.15f) camera_phi = 0.15f;
+    if (camera_phi > M_PI - 0.15f) camera_phi = M_PI - 0.15f;
 
     global_spin_angle = 0.0f;
-    spin_momentum     = 0.0f;
-    is_dragging       = false;
-    last_mouse_x      = 0.0;
-    last_mouse_y      = 0.0;
+    spin_momentum = 0.0f;
+    is_dragging = false;
+    last_mouse_x = 0.0;
+    last_mouse_y = 0.0;
 }
 
 // Back-compat shim — old callers (polygon_init) used this name; now it just
 // applies the deterministic per-N pose for the current N.
-static void polygon_randomize_unsolved()
-{
-    polygon_apply_pose_for(num_segments);
-}
+static void polygon_randomize_unsolved() { polygon_apply_pose_for(num_segments); }
 
 // Compute the magic camera pose CLOSEST to the current one. The full magic
 // locus is eye_x = 0 (theta ≡ ±π/2, any phi), so we snap theta to whichever
@@ -867,12 +923,12 @@ static void polygon_pick_nearest_magic_pose(float& out_theta, float& out_phi)
     // that by accepting a "B" pose (the back canonical view) as a valid
     // solved pose. φ is locked to π/2 either way (canonical top-down).
     float t = fmodf(camera_theta, 2.0f * (float)M_PI);
-    if (t >  (float)M_PI) t -= 2.0f * (float)M_PI;
+    if (t > (float)M_PI) t -= 2.0f * (float)M_PI;
     if (t < -(float)M_PI) t += 2.0f * (float)M_PI;
     float d_front = fabsf(t - 0.5f * (float)M_PI);
-    float d_back  = fabsf(t + 0.5f * (float)M_PI);
+    float d_back = fabsf(t + 0.5f * (float)M_PI);
     out_theta = (d_front <= d_back) ? 0.5f * (float)M_PI : -0.5f * (float)M_PI;
-    out_phi   = 0.5f * (float)M_PI;
+    out_phi = 0.5f * (float)M_PI;
 }
 
 // Kick off the smooth ease-in from the current camera pose to the NEAREST
@@ -884,22 +940,22 @@ static void polygon_start_snap_animation()
     if (anim_snapping || is_locked) return;
     polygon_pick_nearest_magic_pose(anim_target_theta, anim_target_phi);
     // Wrap-normalise camera_theta so the lerp goes the SHORT way.
-    while (camera_theta - anim_target_theta >  (float)M_PI) camera_theta -= 2.0f * (float)M_PI;
+    while (camera_theta - anim_target_theta > (float)M_PI) camera_theta -= 2.0f * (float)M_PI;
     while (camera_theta - anim_target_theta < -(float)M_PI) camera_theta += 2.0f * (float)M_PI;
-    anim_snapping    = true;
-    anim_start_time  = (float)glfwGetTime();
+    anim_snapping = true;
+    anim_start_time = (float)glfwGetTime();
     anim_start_theta = camera_theta;
-    anim_start_phi   = camera_phi;
+    anim_start_phi = camera_phi;
     global_spin_angle = 0.0f;
-    spin_momentum     = 0.0f;
+    spin_momentum = 0.0f;
 }
 
 // Drop out of the locked state — user wants to play with the figure again.
 // Called by R / SPACE / A and when the user drags well off the magic angle.
 static void polygon_cancel_lock()
 {
-    is_locked      = false;
-    anim_snapping  = false;
+    is_locked = false;
+    anim_snapping = false;
 }
 
 // "Solved" pose for the S-key — trigger the smooth animated snap to the
@@ -1005,8 +1061,8 @@ void polygon_cursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     if (anim_snapping) return;
 
     camera_theta -= deltaX * 0.01f;
-    camera_phi   += deltaY * 0.01f;
+    camera_phi += deltaY * 0.01f;
 
-    if (camera_phi < 0.01f)         camera_phi = 0.01f;
-    if (camera_phi > M_PI - 0.01f)  camera_phi = M_PI - 0.01f;
+    if (camera_phi < 0.01f) camera_phi = 0.01f;
+    if (camera_phi > M_PI - 0.01f) camera_phi = M_PI - 0.01f;
 }
