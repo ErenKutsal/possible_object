@@ -102,8 +102,15 @@ void main()
     vec3 dy = dFdy(fragPos);
     vec3 N  = normalize(cross(dx, dy));
 
-    vec3 V    = normalize(uEyePos - fragPos);
-    vec3 L    = normalize(uLightPos - fragPos);
+    // View direction = CONSTANT and light = DIRECTIONAL — correct under the
+    // orthographic projection this figure uses. The environment reflection
+    // R = reflect(-V, N) and the direct-light highlight then depend only on the
+    // face normal, never world position, so two faces that align at the magic
+    // angle sample the SAME point of the env map and the chrome join stays
+    // seamless. (For a curved surface N still varies smoothly, so reflections
+    // keep flowing across the bars — only the position term is removed.)
+    vec3 V    = normalize(uEyePos);
+    vec3 L    = normalize(uLightPos);
     vec3 H    = normalize(V + L);
     float NdotV = max(dot(N, V), 0.001);
     float NdotL = max(dot(N, L), 0.0);

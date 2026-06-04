@@ -2,6 +2,7 @@
 
 in vec3 fragPos;
 in vec4 fragColor;
+in float vScreenY;
 
 uniform vec3  uLightPos;
 uniform vec3  uEyePos;
@@ -29,8 +30,16 @@ void main()
     vec3 dy = dFdy(fragPos);
     vec3 N  = normalize(cross(dx, dy));
 
-    vec3 L = normalize(uLightPos - fragPos);
-    vec3 V = normalize(uEyePos   - fragPos);
+    // --- Lighting: DIRECTIONAL light + CONSTANT view direction ---
+    // These figures are drawn under orthographic (axonometric) projection, so
+    // the view direction is the same for every fragment. Treating the light as
+    // directional too makes the entire shade depend ONLY on the face normal —
+    // never on world position. That is the key to a seamless solved join: the
+    // two faces that align at the magic angle share a normal, so they receive
+    // identical shading and read as one continuous surface (Inglis 2014 renders
+    // its axonometric blocks the same way).
+    vec3 L = normalize(uLightPos);
+    vec3 V = normalize(uEyePos);
     vec3 R = reflect(-L, N);
 
     // --- Phong ---
@@ -39,10 +48,11 @@ void main()
     float specular = pow(max(dot(R, V), 0.0), 64.0) * 0.6;
 
     // --- Escher gradient ---
-    // Normalize world Y into 0..1 range across the object's height.
-    // Higher faces appear lighter — creates impossible depth no matter
-    // what the object is or how it is oriented.
-    float gradientT = clamp(fragPos.y / uObjHeight + 0.5, 0.0, 1.0);
+    // Keyed to SCREEN-space height (not world Y). A vertical screen-space ramp
+    // is continuous across an aligned join — both halves sit at the same screen
+    // height, so they get the same brightness and no step appears at the seam —
+    // while still giving the gentle top-lighter falloff + slow uTime shimmer.
+    float gradientT = clamp(vScreenY, 0.0, 1.0);
     // Sine wave so average brightness stays constant regardless of view
     float brightness = 0.82 + 0.20 * sin(gradientT * 3.14159
                                         + uTime * 0.4);

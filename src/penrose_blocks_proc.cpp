@@ -43,7 +43,10 @@ void pbp_init()
     // No ball orbit on this slot — only slots 1 (procedural polygon) and
     // 2 (Penrose Triangle) keep their rolling indicator.
 }
-void pbp_display() { g_shape.display(); }
+void pbp_display()
+{
+    g_shape.display();
+}
 void pbp_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }
 void pbp_cursorPosCallback(GLFWwindow*, double x, double y) { g_shape.cursorPos(x, y); }
 void pbp_scrollCallback(GLFWwindow*, double, double y) { g_shape.scroll(y); }

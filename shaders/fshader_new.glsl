@@ -25,8 +25,16 @@ void main() {
     }
 
     vec3 N = normalize(fragNormal);
-    vec3 L = normalize(uLightPos - fragPos);
-    vec3 V = normalize(uEyePos   - fragPos);
+    // Global light = DIRECTIONAL, view direction = CONSTANT (correct under the
+    // orthographic projection this figure uses). The global Phong term then
+    // depends only on the face normal — never on world position — so the two
+    // halves of the split bar 0 (which share a normal where they align at the
+    // magic angle, just sitting at different depths) receive identical shading
+    // and read as one continuous, seamless bar. The dynamic ball light below
+    // stays a real positional point light — it's a moving indicator, not part
+    // of the static illusion surface.
+    vec3 L = normalize(uLightPos);
+    vec3 V = normalize(uEyePos);
     vec3 R = reflect(-L, N);
 
     // --- Global Light (Your original Phong setup) ---
