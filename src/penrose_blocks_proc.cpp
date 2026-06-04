@@ -39,6 +39,9 @@ void pbp_init()
     // exported from Blender — that axis is parallel to the bisect-cut normals,
     // so the illusion still works at S=(0,0,0) but the figure shows spun 60°
     // in the screen plane relative to slot 2. Keep ObjShape's default R pose.
+
+    // No ball orbit on this slot — only slots 1 (procedural polygon) and
+    // 2 (Penrose Triangle) keep their rolling indicator.
 }
 void pbp_display() { g_shape.display(); }
 void pbp_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }

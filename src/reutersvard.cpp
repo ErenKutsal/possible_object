@@ -8,6 +8,9 @@ static ObjShape g_shape;
 void reutersvard_init()
 {
     g_shape.init("../models/reutersvard_rectangle.obj", default_palette());
+
+    // No ball orbit on this slot — only slots 1 (procedural polygon) and
+    // 2 (Penrose Triangle) keep their rolling indicator.
 }
 void reutersvard_display() { g_shape.display(); }
 void reutersvard_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }

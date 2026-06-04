@@ -179,6 +179,53 @@ inline mat4 Ortho(float left, float right, float bottom, float top, float zNear,
     return m;
 }
 
+// Full 4x4 inverse via cofactor expansion. Returns identity on singular matrix.
+// Needed for screen → world ray unprojection in the interactive path editor.
+inline mat4 inverse(const mat4& m)
+{
+    const float* M = &m.d[0].x;   // column-major flat
+    float inv[16];
+    inv[ 0] =  M[5]*M[10]*M[15] - M[5]*M[11]*M[14] - M[9]*M[6]*M[15]
+              + M[9]*M[7]*M[14] + M[13]*M[6]*M[11] - M[13]*M[7]*M[10];
+    inv[ 4] = -M[4]*M[10]*M[15] + M[4]*M[11]*M[14] + M[8]*M[6]*M[15]
+              - M[8]*M[7]*M[14] - M[12]*M[6]*M[11] + M[12]*M[7]*M[10];
+    inv[ 8] =  M[4]*M[9]*M[15]  - M[4]*M[11]*M[13] - M[8]*M[5]*M[15]
+              + M[8]*M[7]*M[13] + M[12]*M[5]*M[11] - M[12]*M[7]*M[9];
+    inv[12] = -M[4]*M[9]*M[14]  + M[4]*M[10]*M[13] + M[8]*M[5]*M[14]
+              - M[8]*M[6]*M[13] - M[12]*M[5]*M[10] + M[12]*M[6]*M[9];
+    inv[ 1] = -M[1]*M[10]*M[15] + M[1]*M[11]*M[14] + M[9]*M[2]*M[15]
+              - M[9]*M[3]*M[14] - M[13]*M[2]*M[11] + M[13]*M[3]*M[10];
+    inv[ 5] =  M[0]*M[10]*M[15] - M[0]*M[11]*M[14] - M[8]*M[2]*M[15]
+              + M[8]*M[3]*M[14] + M[12]*M[2]*M[11] - M[12]*M[3]*M[10];
+    inv[ 9] = -M[0]*M[9]*M[15]  + M[0]*M[11]*M[13] + M[8]*M[1]*M[15]
+              - M[8]*M[3]*M[13] - M[12]*M[1]*M[11] + M[12]*M[3]*M[9];
+    inv[13] =  M[0]*M[9]*M[14]  - M[0]*M[10]*M[13] - M[8]*M[1]*M[14]
+              + M[8]*M[2]*M[13] + M[12]*M[1]*M[10] - M[12]*M[2]*M[9];
+    inv[ 2] =  M[1]*M[6]*M[15]  - M[1]*M[7]*M[14]  - M[5]*M[2]*M[15]
+              + M[5]*M[3]*M[14] + M[13]*M[2]*M[7]  - M[13]*M[3]*M[6];
+    inv[ 6] = -M[0]*M[6]*M[15]  + M[0]*M[7]*M[14]  + M[4]*M[2]*M[15]
+              - M[4]*M[3]*M[14] - M[12]*M[2]*M[7]  + M[12]*M[3]*M[6];
+    inv[10] =  M[0]*M[5]*M[15]  - M[0]*M[7]*M[13]  - M[4]*M[1]*M[15]
+              + M[4]*M[3]*M[13] + M[12]*M[1]*M[7]  - M[12]*M[3]*M[5];
+    inv[14] = -M[0]*M[5]*M[14]  + M[0]*M[6]*M[13]  + M[4]*M[1]*M[14]
+              - M[4]*M[2]*M[13] - M[12]*M[1]*M[6]  + M[12]*M[2]*M[5];
+    inv[ 3] = -M[1]*M[6]*M[11]  + M[1]*M[7]*M[10]  + M[5]*M[2]*M[11]
+              - M[5]*M[3]*M[10] - M[9]*M[2]*M[7]   + M[9]*M[3]*M[6];
+    inv[ 7] =  M[0]*M[6]*M[11]  - M[0]*M[7]*M[10]  - M[4]*M[2]*M[11]
+              + M[4]*M[3]*M[10] + M[8]*M[2]*M[7]   - M[8]*M[3]*M[6];
+    inv[11] = -M[0]*M[5]*M[11]  + M[0]*M[7]*M[9]   + M[4]*M[1]*M[11]
+              - M[4]*M[3]*M[9]  - M[8]*M[1]*M[7]   + M[8]*M[3]*M[5];
+    inv[15] =  M[0]*M[5]*M[10]  - M[0]*M[6]*M[9]   - M[4]*M[1]*M[10]
+              + M[4]*M[2]*M[9]  + M[8]*M[1]*M[6]   - M[8]*M[2]*M[5];
+    float det = M[0]*inv[0] + M[1]*inv[4] + M[2]*inv[8] + M[3]*inv[12];
+    mat4 out;
+    if (fabsf(det) < 1e-9f) return out;   // identity = sentinel for singular
+    float idet = 1.0f / det;
+    float* O = &out.d[0].x;
+    for (int i = 0; i < 16; ++i) O[i] = inv[i] * idet;
+    return out;
+}
+
 inline mat4 Perspective(float fovy, float aspect, float zNear, float zFar)
 {
     float rad = fovy * M_PI / 180.0f;

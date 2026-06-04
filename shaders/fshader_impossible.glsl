@@ -8,11 +8,19 @@ uniform vec3  uEyePos;
 uniform float uTime;        // for animating the gradient
 uniform float uObjHeight;   // world-space height of the object (for normalizing Y)
 uniform float uLockGlow;    // 0..1, brightness pulse when figure clicks into solved pose
+uniform int   uIsBall;      // 1 = render as bright emissive ball, 0 = normal figure
 
 out vec4 outColor;
 
 void main()
 {
+    // EARLY-OUT for the ball: bright emissive yellow, no shading, so it
+    // reads as a "you-solved-it" indicator riding the figure rather than
+    // a 3D object in the scene.
+    if (uIsBall == 1) {
+        outColor = vec4(fragColor.rgb * 2.0, 1.0);
+        return;
+    }
     // --- Compute face normal automatically from position derivatives ---
     // dFdx/dFdy give the rate of change of fragPos across adjacent pixels.
     // Their cross product is the face normal — no normal attribute needed.

@@ -31,6 +31,34 @@ void penrose_init()
 {
     g_shape.init("../models/penrose_triangle.obj", continuous_palette());
 
+    // Penrose Triangle bar layout (from the actual OBJ mesh):
+    //   Z-bar at (x=5, y=0, z=-6..+6)         long, along Z axis
+    //   X-bar at (x=-6..+6, y=0, z=-5)        long, along X axis
+    //   Y-bar 1 at (x=5,  y=1..5,  z=5)       short, along Y axis (closes top corner)
+    //   Y-bar 2 at (x=-5, y=-5..-1, z=-5)     short, along Y axis (closes bottom corner)
+    //
+    // The figure is "impossible": the loop closes via a 3D JUMP from
+    // (-5,-5,-5) → (5,5,5) — both world points project to iso (0, 0), so
+    // the jump is invisible at the magic angle.
+    //
+    // Path traverses the loop in 5 segments:
+    //   A → B   Y-bar 1     (5,5,5) → (5,0,5)
+    //   B → C   Z-bar       (5,0,5) → (5,0,-5)
+    //   C → D   X-bar       (5,0,-5) → (-5,0,-5)
+    //   D → E   Y-bar 2     (-5,0,-5) → (-5,-5,-5)
+    //   E → A   impossible  (-5,-5,-5) → (5,5,5)  (invisible at iso angle)
+    //
+    // Each segment's "up" is the iso-axis component perpendicular to the
+    // bar axis — that's the face visible to the iso camera, so the ball
+    // rests on the bar's outward-facing edge.
+    g_shape.setBallPath({
+        { vec3( 5.0f,  5.0f,  5.0f), vec3(1.0f, 0.0f, 1.0f) },  // A: Y-bar 1 up (perp to Y)
+        { vec3( 5.0f,  0.0f,  5.0f), vec3(1.0f, 1.0f, 0.0f) },  // B: Z-bar up (perp to Z)
+        { vec3( 5.0f,  0.0f, -5.0f), vec3(0.0f, 1.0f, 1.0f) },  // C: X-bar up (perp to X)
+        { vec3(-5.0f,  0.0f, -5.0f), vec3(1.0f, 0.0f, 1.0f) },  // D: Y-bar 2 up
+        { vec3(-5.0f, -5.0f, -5.0f), vec3(1.0f, -1.0f, 0.0f) }, // E: impossible-jump up (any perp to iso)
+    }, /*thickness=*/1.0f, /*ballRadius=*/0.45f);
+
     // Initialize lattice background
     bg_init_lattice();
 }

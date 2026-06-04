@@ -25,6 +25,74 @@ struct ObjShape
     GLuint modelLoc = 0, viewLoc = 0, projLoc = 0;
     GLint  lightLoc = -1, eyeLoc = -1, timeLoc = -1, heightLoc = -1;
     GLint  lockGlowLoc = -1;
+    // Slot-6-specific uniforms (only present in the iridescent shader; any
+    // ObjShape that uses the default shader leaves these at -1 and skips
+    // sending them).
+    GLint  postSolveTimeLoc   = -1;
+    GLint  breathAmountLoc    = -1;
+    GLint  hueShiftLoc        = -1;
+    GLint  iridescenceAmtLoc  = -1;
+    GLint  skyboxRotationLoc  = -1;
+    // Tracked CPU-side so the shader can animate after LOCKED. Reset to 0
+    // whenever the solve phase leaves LOCKED.
+    float  postSolveTime      = 0.0f;
+    // Slot 6 (chrome) tells us its current skybox rotation; we forward it
+    // to the chrome shader so its reflection samples match what the skybox
+    // is showing. Other slots leave this at 0 (and the uniform doesn't
+    // exist on their shader so the send is skipped).
+    float  externalSkyboxRotation = 0.0f;
+    void   setSkyboxRotation(float r) { externalSkyboxRotation = r; }
+    bool   isSolved() const { return solvePhase == SolvePhase::Locked; }
+
+    // Optional override for the direct light's world position. The default
+    // (eye-relative) is used when useCustomLight is false. Slot 6 enables
+    // this and feeds the position of its orbiting visible light marker so
+    // the chrome's specular highlight clearly tracks that light.
+    bool   useCustomLight   = false;
+    vec3   customLightPos   = vec3(0.0f, 0.0f, 0.0f);
+    void   setCustomLight(const vec3& p) { useCustomLight = true; customLightPos = p; }
+    GLint  isBallLoc = -1;
+
+    // ── Ball mesh (per-instance — owns a sphere VAO for the indicator) ────
+    GLuint ballVao = 0, ballPosBuffer = 0, ballColorBuffer = 0;
+    int    ballVertexCount = 0;
+    float  ballRadiusWorld = 0.30f;   // sphere radius in OBJ-space units (tuned per slot via setBallPath)
+
+    // ── Path-based ball control (active while locked) ──────────────────────
+    // Each shape gets a hand-defined LOOP path made of straight segments.
+    // ball_s ∈ [0, 1) is arc-length-parameterized over the whole loop.
+    // ball_u ∈ [0, 4) is the cross-section position (inner/top/outer/bot,
+    // matching slot 1's diamond convention but interpreted with the
+    // PER-SEGMENT up/right axes so the ball rolls on the bar's surface).
+    //
+    // WASD when LOCKED:
+    //   W/S  → forward / backward along the loop
+    //   D/A  → CW / CCW around the bar's cross-section
+
+    // A waypoint = mesh-local position + outward "up" direction (face normal).
+    struct PathWaypoint { vec3 pos; vec3 up; };
+
+    struct PathSegment {
+        vec3 start;        // OBJ-space (post-centering) endpoint
+        vec3 end;          // OBJ-space endpoint
+        vec3 up;           // local +z (top of bar) — must be perpendicular to (end-start)
+        // cached
+        float length;
+        vec3  forward;     // (end-start)/length
+        vec3  right;       // cross(forward, up) — local +y (outer side of bar)
+    };
+    std::vector<PathSegment> ballPath;
+    float ballPathTotalLength = 0.0f;
+    float ballThickness       = 1.0f;   // half-thickness of the bar's cross-section
+
+    bool   key_w_held = false, key_a_held = false;
+    bool   key_s_held = false, key_d_held = false;
+    double last_wasd_input_time = 0.0;
+    float  ball_s = 0.0f;
+    float  ball_u = 1.5f;
+    static constexpr float BALL_S_SPEED              = 0.18f;   // loops per second (slower for OBJ scale)
+    static constexpr float BALL_U_SPEED              = 1.30f;   // perimeter units per second
+    static constexpr float IDLE_DRIFT_THRESHOLD_SEC  = 1.5f;
 
     // ── Solve animation state (three-phase) ──────────────────────────────
     // When the player aligns the bisect cuts (iso axis preserved), we play:
@@ -112,25 +180,42 @@ struct ObjShape
     // ──────────────────────────────────────────────────────────────────────
     // init: load the OBJ file at `path` with `palette` colors, compile the
     // shared impossible-figure shader, upload mesh to GPU.
+    //
+    // Optional vshader/fshader paths let a slot use its OWN shader pair
+    // (e.g. slot 6's iridescent shader) without affecting other slots that
+    // share the default impossible-figure shader. Pass nullptr to use the
+    // default. Custom shaders are still expected to declare `uModelHeight`,
+    // `uLightPos`, etc. — they get the same uniform feed.
     // ──────────────────────────────────────────────────────────────────────
-    void init(const char* objPath, const ObjColorPalette& palette)
+    void init(const char* objPath, const ObjColorPalette& palette,
+              const char* vshaderPath = nullptr,
+              const char* fshaderPath = nullptr)
     {
         if (!obj_load(objPath, palette, positions, colors))
         {
             fprintf(stderr, "ObjShape::init: failed to load %s\n", objPath);
         }
 
-        shaderProgram = InitShader("../shaders/vshader_impossible.glsl",
-                                   "../shaders/fshader_impossible.glsl");
+        const char* vs = vshaderPath ? vshaderPath : "../shaders/vshader_impossible.glsl";
+        const char* fs = fshaderPath ? fshaderPath : "../shaders/fshader_impossible.glsl";
+        shaderProgram  = InitShader(vs, fs);
 
-        lightLoc    = glGetUniformLocation(shaderProgram, "uLightPos");
-        eyeLoc      = glGetUniformLocation(shaderProgram, "uEyePos");
-        timeLoc     = glGetUniformLocation(shaderProgram, "uTime");
-        heightLoc   = glGetUniformLocation(shaderProgram, "uObjHeight");
-        lockGlowLoc = glGetUniformLocation(shaderProgram, "uLockGlow");
-        modelLoc    = glGetUniformLocation(shaderProgram, "model");
-        viewLoc     = glGetUniformLocation(shaderProgram, "view");
-        projLoc     = glGetUniformLocation(shaderProgram, "projection");
+        lightLoc           = glGetUniformLocation(shaderProgram, "uLightPos");
+        eyeLoc             = glGetUniformLocation(shaderProgram, "uEyePos");
+        timeLoc            = glGetUniformLocation(shaderProgram, "uTime");
+        heightLoc          = glGetUniformLocation(shaderProgram, "uObjHeight");
+        lockGlowLoc        = glGetUniformLocation(shaderProgram, "uLockGlow");
+        isBallLoc          = glGetUniformLocation(shaderProgram, "uIsBall");
+        // Slot-6-only uniforms — return -1 on the default shader, that's
+        // fine; we guard sending them by `loc >= 0`.
+        postSolveTimeLoc   = glGetUniformLocation(shaderProgram, "uPostSolveTime");
+        breathAmountLoc    = glGetUniformLocation(shaderProgram, "uBreathAmount");
+        hueShiftLoc        = glGetUniformLocation(shaderProgram, "uHueShift");
+        iridescenceAmtLoc  = glGetUniformLocation(shaderProgram, "uIridescenceAmount");
+        skyboxRotationLoc  = glGetUniformLocation(shaderProgram, "uSkyboxRotation");
+        modelLoc           = glGetUniformLocation(shaderProgram, "model");
+        viewLoc            = glGetUniformLocation(shaderProgram, "view");
+        projLoc            = glGetUniformLocation(shaderProgram, "projection");
 
         glGenVertexArrays(1, &vao);
         glBindVertexArray(vao);
@@ -162,6 +247,181 @@ struct ObjShape
         if (r >  180.0f) r -= 360.0f;
         if (r < -180.0f) r += 360.0f;
         return r;
+    }
+
+    // ── Ball path setup (called by per-slot init) ───────────────────────────
+    // `waypoints` is a closed loop: segment i connects waypoints[i] to
+    // waypoints[(i+1)%N]. For each segment we need an "up" vector — the
+    // bar's "top" direction in OBJ space, perpendicular to the bar's axis.
+    //
+    // `thickness` is the bar's half-cross-section size (used to offset the
+    // ball out from the centerline so it visually rests on the surface).
+    // `ballRadius` sizes the sphere (OBJ-space units).
+    void setBallPath(const std::vector<PathWaypoint>& waypoints,
+                     float thickness, float ballRadius)
+    {
+        ballPath.clear();
+        ballPathTotalLength = 0.0f;
+        ballThickness   = thickness;
+        ballRadiusWorld = ballRadius;
+        int n = (int)waypoints.size();
+        for (int i = 0; i < n; ++i) {
+            const vec3& a = waypoints[i].pos;
+            const vec3& b = waypoints[(i + 1) % n].pos;
+            const vec3& up = waypoints[i].up;
+            vec3 fwd = b - a;
+            float len = sqrtf(fwd.x*fwd.x + fwd.y*fwd.y + fwd.z*fwd.z);
+            if (len < 1e-6f) continue;
+            float ilen = 1.0f / len;
+            fwd = vec3(fwd.x*ilen, fwd.y*ilen, fwd.z*ilen);
+            // Orthogonalise up against forward (Gram-Schmidt), in case
+            // the caller gave a not-quite-perpendicular up.
+            float updot = fwd.x*up.x + fwd.y*up.y + fwd.z*up.z;
+            vec3 up_ortho(up.x - fwd.x*updot, up.y - fwd.y*updot, up.z - fwd.z*updot);
+            float ulen = sqrtf(up_ortho.x*up_ortho.x + up_ortho.y*up_ortho.y + up_ortho.z*up_ortho.z);
+            if (ulen > 1e-6f) {
+                float iul = 1.0f / ulen;
+                up_ortho = vec3(up_ortho.x*iul, up_ortho.y*iul, up_ortho.z*iul);
+            }
+            vec3 right(fwd.y*up_ortho.z - fwd.z*up_ortho.y,
+                       fwd.z*up_ortho.x - fwd.x*up_ortho.z,
+                       fwd.x*up_ortho.y - fwd.y*up_ortho.x);
+            PathSegment s;
+            s.start   = a;
+            s.end     = b;
+            s.up      = up_ortho;
+            s.length  = len;
+            s.forward = fwd;
+            s.right   = right;
+            ballPath.push_back(s);
+            ballPathTotalLength += len;
+        }
+
+        // One-time sphere mesh generation (lazy: only when a slot opts in to
+        // having a ball). Reuses the figure's shader + the new uIsBall mode.
+        if (ballVao == 0) generateBallSphere();
+    }
+
+    // Generate a sphere mesh, upload to a dedicated VAO. Bright yellow vertex
+    // colors so uIsBall mode in the shader can emit (color * 2.0).
+    void generateBallSphere()
+    {
+        const int STACKS = 12, SLICES = 14;
+        std::vector<vec4> positions, colors;
+        for (int i = 0; i < STACKS; ++i) {
+            float phi1 = (float)M_PI * (float)i       / (float)STACKS;
+            float phi2 = (float)M_PI * (float)(i + 1) / (float)STACKS;
+            for (int j = 0; j < SLICES; ++j) {
+                float t1 = 2.0f * (float)M_PI * (float)j       / (float)SLICES;
+                float t2 = 2.0f * (float)M_PI * (float)(j + 1) / (float)SLICES;
+                vec4 v[4] = {
+                    vec4(sinf(phi1)*cosf(t1), cosf(phi1), sinf(phi1)*sinf(t1), 1),
+                    vec4(sinf(phi2)*cosf(t1), cosf(phi2), sinf(phi2)*sinf(t1), 1),
+                    vec4(sinf(phi2)*cosf(t2), cosf(phi2), sinf(phi2)*sinf(t2), 1),
+                    vec4(sinf(phi1)*cosf(t2), cosf(phi1), sinf(phi1)*sinf(t2), 1),
+                };
+                positions.push_back(v[0]); positions.push_back(v[1]); positions.push_back(v[2]);
+                positions.push_back(v[0]); positions.push_back(v[2]); positions.push_back(v[3]);
+            }
+        }
+        ballVertexCount = (int)positions.size();
+        colors.assign(ballVertexCount, vec4(1.0f, 0.85f, 0.2f, 1.0f));   // golden yellow
+
+        glGenVertexArrays(1, &ballVao);
+        glBindVertexArray(ballVao);
+        glGenBuffers(1, &ballPosBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, ballPosBuffer);
+        glBufferData(GL_ARRAY_BUFFER, positions.size()*sizeof(vec4), positions.data(), GL_STATIC_DRAW);
+        GLuint posLoc = glGetAttribLocation(shaderProgram, "vPosition");
+        glEnableVertexAttribArray(posLoc);
+        glVertexAttribPointer(posLoc, 4, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
+        glGenBuffers(1, &ballColorBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, ballColorBuffer);
+        glBufferData(GL_ARRAY_BUFFER, colors.size()*sizeof(vec4), colors.data(), GL_STATIC_DRAW);
+        GLuint colLoc = glGetAttribLocation(shaderProgram, "vColor");
+        glEnableVertexAttribArray(colLoc);
+        glVertexAttribPointer(colLoc, 4, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
+        glBindVertexArray(0);
+    }
+
+    // Convert (ball_s, ball_u) → world OBJ-space position. Uses arc-length
+    // parameterisation along ballPath (closed loop), and the per-segment
+    // (up, right) frame for cross-section offset.
+    vec3 ballPositionFromSU() const
+    {
+        if (ballPath.empty()) return vec3(0,0,0);
+        // Find which segment ball_s lands on.
+        float s_arc = ball_s * ballPathTotalLength;
+        const PathSegment* seg = &ballPath[0];
+        float prev = 0.0f;
+        for (size_t i = 0; i < ballPath.size(); ++i) {
+            if (s_arc < prev + ballPath[i].length) { seg = &ballPath[i]; break; }
+            prev += ballPath[i].length;
+            seg = &ballPath[i];
+        }
+        float seg_t = (s_arc - prev) / seg->length;
+        if (seg_t < 0) seg_t = 0; if (seg_t > 1) seg_t = 1;
+
+        // Centerline point along this segment.
+        vec3 center(
+            seg->start.x + seg_t * (seg->end.x - seg->start.x),
+            seg->start.y + seg_t * (seg->end.y - seg->start.y),
+            seg->start.z + seg_t * (seg->end.z - seg->start.z));
+
+        // Cross-section perimeter direction from ball_u (same diamond as slot 1).
+        //   0 → inner (-right),   1 → top (+up),   2 → outer (+right),   3 → bot (-up)
+        int face = (int)floorf(ball_u);
+        face = ((face % 4) + 4) % 4;
+        float ft = ball_u - floorf(ball_u);
+        vec3 ay_d, by_d, n_d;  // a, b in y-z perimeter, outward normal (all in local frame)
+        const float h = ballThickness;
+        const float k = 0.70710678f;
+        // ( y_local, z_local ) where y → right, z → up.
+        float ay, az, by, bz, ny, nz;
+        switch (face) {
+            case 0: ay=-h; az=0;  by=0;  bz=+h; ny=-k; nz=+k; break;   // in → top
+            case 1: ay=0;  az=+h; by=+h; bz=0;  ny=+k; nz=+k; break;   // top → out
+            case 2: ay=+h; az=0;  by=0;  bz=-h; ny=+k; nz=-k; break;   // out → bot
+            default:ay=0;  az=-h; by=-h; bz=0;  ny=-k; nz=-k; break;   // bot → in
+        }
+        float y_perim = ay + ft * (by - ay);
+        float z_perim = az + ft * (bz - az);
+        float r = ballRadiusWorld;
+        float y_local = y_perim + r * ny;
+        float z_local = z_perim + r * nz;
+
+        // Combine: world = center + y_local*right + z_local*up
+        return vec3(
+            center.x + y_local * seg->right.x + z_local * seg->up.x,
+            center.y + y_local * seg->right.y + z_local * seg->up.y,
+            center.z + y_local * seg->right.z + z_local * seg->up.z);
+    }
+
+    // Update ball_s, ball_u from held-WASD state (called once per frame from display).
+    void updateBallFromInput(float delta_time)
+    {
+        if (solvePhase != SolvePhase::Locked) {
+            // While unsolved or animating: ball idle at start of path.
+            ball_s = 0.0f;
+            ball_u = 1.5f;   // top-outer-ish default
+            return;
+        }
+        float s_input = 0.0f, u_input = 0.0f;
+        if (key_w_held) s_input += 1.0f;
+        if (key_s_held) s_input -= 1.0f;
+        if (key_d_held) u_input += 1.0f;
+        if (key_a_held) u_input -= 1.0f;
+
+        if (s_input != 0.0f || u_input != 0.0f) {
+            ball_s += s_input * BALL_S_SPEED * delta_time;
+            ball_u += u_input * BALL_U_SPEED * delta_time;
+        } else {
+            double now = glfwGetTime();
+            if (now - last_wasd_input_time > (double)IDLE_DRIFT_THRESHOLD_SEC)
+                ball_s += BALL_S_SPEED * delta_time;
+        }
+        ball_s -= floorf(ball_s);
+        ball_u -= 4.0f * floorf(ball_u * 0.25f);
     }
 
     // ── Quaternion helpers (for ROTATING slerp) ──────────────────────────
@@ -379,6 +639,23 @@ struct ObjShape
         solvePhase = SolvePhase::None;
     }
 
+    // View + projection getters so slot 6's skybox can use the SAME camera
+    // setup as the figure (otherwise the rotating sky and the reflection
+    // sampled by the chrome would drift apart).
+    mat4 getViewMatrix() const
+    {
+        vec3 eye(cameraEye);
+        return LookAt(eye, vec3(0.0f, 0.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f));
+    }
+    mat4 getProjectionMatrix() const
+    {
+        float aspect = (screen_w > 0 && screen_h > 0)
+                           ? (float)screen_w / (float)screen_h
+                           : 1.0f;
+        return Ortho(-orthoSize * aspect, orthoSize * aspect,
+                     -orthoSize, orthoSize, 0.1f, 200.0f);
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // display: render the shape with current rotation against an ortho cam.
     // ──────────────────────────────────────────────────────────────────────
@@ -515,14 +792,109 @@ struct ObjShape
         mat4 model = Scale(lockScale, lockScale, lockScale) * rotPart;
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model.d[0].x);
 
-        vec3 lightPos(eye.x * 0.8f, eye.y * 1.6f, eye.z * 1.2f);
+        vec3 lightPos = useCustomLight
+                            ? customLightPos
+                            : vec3(eye.x * 0.8f, eye.y * 1.6f, eye.z * 1.2f);
         glUniform3fv(lightLoc, 1, &lightPos.x);
         glUniform3fv(eyeLoc, 1, &eye.x);
         glUniform1f(timeLoc, (float)now);
         glUniform1f(heightLoc, objHeight);
         if (lockGlowLoc >= 0) glUniform1f(lockGlowLoc, lockGlow);
+        if (isBallLoc   >= 0) glUniform1i(isBallLoc,   0);   // figure mode
+
+        // ── Post-solve animation uniforms (only iridescent shader uses) ──
+        // Track seconds since LOCKED began. Other phases reset it to 0 so the
+        // shimmer/breathing only plays while actually solved.
+        if (solvePhase == SolvePhase::Locked) {
+            postSolveTime = (float)(now - phaseStartTime);
+        } else {
+            postSolveTime = 0.0f;
+        }
+        // Shimmer has THREE sources, max-blended:
+        //   1. BASELINE   — always on, so the chrome never looks dead.
+        //   2. PROXIMITY  — ramps in as the player rotates closer to the
+        //      magic iso-axis alignment. Live "getting warmer" feedback —
+        //      makes the unsolved puzzle phase visually interesting too.
+        //   3. POST-SOLVE — boost from baseline → 1.0 over RAMP_DURATION
+        //      once locked, so solving still feels like a payoff.
+        constexpr float RAMP_DURATION       = 1.5f;
+        constexpr float BASELINE            = 0.35f;
+        constexpr float PROXIMITY_PEAK      = 0.85f;   // how strong proximity gets
+        constexpr float PROXIMITY_FULL_DEG  = 8.0f;    // ≤ 8° misalign → max boost
+        constexpr float PROXIMITY_NONE_DEG  = 40.0f;   // ≥ 40° → no boost
+
+        // (1) Baseline.
+        float postRamp = BASELINE;
+
+        // (2) Proximity — only meaningful when we're not yet in a solve
+        // phase (otherwise post-solve dominates and proximity is noise).
+        if (solvePhase == SolvePhase::None || solvePhase == SolvePhase::Found) {
+            float mis = isoAxisMisalignmentDeg();
+            float t = (PROXIMITY_NONE_DEG - mis)
+                    / (PROXIMITY_NONE_DEG - PROXIMITY_FULL_DEG);
+            if (t < 0.0f) t = 0.0f;
+            if (t > 1.0f) t = 1.0f;
+            // Smoothstep for a satisfying ramp curve.
+            float et = t * t * (3.0f - 2.0f * t);
+            float proxAmount = BASELINE + (PROXIMITY_PEAK - BASELINE) * et;
+            if (proxAmount > postRamp) postRamp = proxAmount;
+        }
+
+        // (3) Post-solve.
+        if (solvePhase == SolvePhase::Locked) {
+            float ramp = fminf(postSolveTime / RAMP_DURATION, 1.0f);
+            float solvedAmount = BASELINE + (1.0f - BASELINE) * ramp;
+            if (solvedAmount > postRamp) postRamp = solvedAmount;
+        }
+        // Hue drift — also runs continuously off a free-running clock so
+        // the unsolved shimmer cycles too. (Was tied to postSolveTime which
+        // is 0 when not locked → no hue change → static rainbow.)
+        float freeTime = (float)now;
+        float hueShift = fmodf(freeTime * 0.08f, 1.0f);
+
+        if (postSolveTimeLoc  >= 0) glUniform1f(postSolveTimeLoc,  postSolveTime);
+        if (breathAmountLoc   >= 0) glUniform1f(breathAmountLoc,   postRamp);
+        if (hueShiftLoc       >= 0) glUniform1f(hueShiftLoc,       hueShift);
+        if (iridescenceAmtLoc >= 0) glUniform1f(iridescenceAmtLoc, postRamp);
+        if (skyboxRotationLoc >= 0) glUniform1f(skyboxRotationLoc, externalSkyboxRotation);
 
         glDrawArrays(GL_TRIANGLES, 0, (GLsizei)positions.size());
+
+        // ── BALL DRAW (only when LOCKED and a path has been set) ───────────
+        // We compute delta_time on the fly from glfwGetTime. This gives the
+        // player WASD-driven motion + idle drift once a path is registered.
+        // Depth test is disabled for the WHOLE ball draw so it always
+        // floats on top of the figure regardless of cuts / corners.
+        if (solvePhase == SolvePhase::Locked && !ballPath.empty() && ballVao != 0)
+        {
+            static double last_t = 0.0;
+            double tnow = glfwGetTime();
+            float dt = (last_t > 0.0) ? (float)(tnow - last_t) : 0.0f;
+            last_t = tnow;
+            if (dt > 0.1f) dt = 0.1f;   // clamp giant pauses
+
+            updateBallFromInput(dt);
+            vec3 ball_pos_obj = ballPositionFromSU();
+
+            // Apply the same model rotation+scale so the ball follows the
+            // figure (it's solved → rotation is identity-or-B, but the
+            // pulse scale may make it bigger this frame).
+            mat4 ballScale = Scale(ballRadiusWorld, ballRadiusWorld, ballRadiusWorld);
+            mat4 ballTranslate = Translate(ball_pos_obj.x, ball_pos_obj.y, ball_pos_obj.z);
+            mat4 ballModel = model * ballTranslate * ballScale;
+
+            glBindVertexArray(ballVao);
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &ballModel.d[0].x);
+            if (isBallLoc >= 0) glUniform1i(isBallLoc, 1);
+
+            glDisable(GL_DEPTH_TEST);
+            glDrawArrays(GL_TRIANGLES, 0, ballVertexCount);
+            glEnable(GL_DEPTH_TEST);
+
+            if (isBallLoc >= 0) glUniform1i(isBallLoc, 0);
+            glBindVertexArray(vao);   // restore figure VAO for any later draws
+        }
+
         glFinish();
     }
 
@@ -554,6 +926,31 @@ struct ObjShape
 
     void key(GLFWwindow* win, int keyCode, int action)
     {
+        // ── WASD: PRESS / RELEASE → drive the ball when locked ─────────────
+        // We track held-flags here on PRESS/RELEASE; the per-frame update in
+        // display() converts the flags into ball_s / ball_u motion. The
+        // motion only takes effect while solvePhase == Locked.
+        bool wasd_key = (keyCode == GLFW_KEY_W || keyCode == GLFW_KEY_A ||
+                         keyCode == GLFW_KEY_S || keyCode == GLFW_KEY_D);
+        if (wasd_key) {
+            if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+                last_wasd_input_time = glfwGetTime();
+                if (keyCode == GLFW_KEY_W) key_w_held = true;
+                if (keyCode == GLFW_KEY_A) key_a_held = true;
+                if (keyCode == GLFW_KEY_S) key_s_held = true;
+                if (keyCode == GLFW_KEY_D) key_d_held = true;
+            } else if (action == GLFW_RELEASE) {
+                if (keyCode == GLFW_KEY_W) key_w_held = false;
+                if (keyCode == GLFW_KEY_A) key_a_held = false;
+                if (keyCode == GLFW_KEY_S) key_s_held = false;
+                if (keyCode == GLFW_KEY_D) key_d_held = false;
+            }
+            // When locked, WASD is ONLY for the ball — swallow so S doesn't
+            // also re-trigger the solve animation, etc. When unlocked, only
+            // S has a legacy meaning; just fall through to handle it below.
+            if (solvePhase == SolvePhase::Locked) return;
+        }
+
         if (action != GLFW_PRESS && action != GLFW_REPEAT) return;
         if (keyCode == GLFW_KEY_LEFT)  angleY -= 3.0f;
         if (keyCode == GLFW_KEY_RIGHT) angleY += 3.0f;
