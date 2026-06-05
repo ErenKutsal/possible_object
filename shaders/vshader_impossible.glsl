@@ -10,6 +10,7 @@ uniform mat4 projection;
 out vec3 fragPos;     // world-space position for the flat-normal derivative
 out vec4 fragColor;   // pass through original vertex color as base
 out float vScreenY;   // screen-space (NDC) height 0=bottom..1=top, for the gradient
+out float vScreenX;   // screen-space (NDC) width  0=left..1=right (burn-front trace)
 
 void main()
 {
@@ -23,4 +24,5 @@ void main()
     // for any two faces that land on the same screen pixel — which is what keeps
     // a solved join seamless (the depth gradient can't step across the seam).
     vScreenY = gl_Position.y / gl_Position.w * 0.5 + 0.5;
+    vScreenX = gl_Position.x / gl_Position.w * 0.5 + 0.5;
 }

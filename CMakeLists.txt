@@ -17,10 +17,6 @@ if(NOT APPLE)
 endif()
 
 include(FetchContent)
-
-# Cache ImGui after first download — don't check for updates on subsequent builds
-set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
-
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -48,7 +44,6 @@ add_executable(
     imposible.out
     src/main.cpp
     src/impossible_polygon.cpp
-    src/background.cpp
     # OBJ-loaded shapes (slots 1-5, 0-indexed 1-5)
     src/penrose.cpp
     src/neckercube.cpp

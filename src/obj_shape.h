@@ -24,6 +24,7 @@ struct ObjShape
     GLuint colorBuffer = 0;
     GLuint modelLoc = 0, viewLoc = 0, projLoc = 0;
     GLint  lightLoc = -1, eyeLoc = -1, timeLoc = -1, heightLoc = -1;
+    GLint  lightColorLoc = -1;   // per-slot light tint (Tier 2); -1 if shader lacks uLightColor
     GLint  lockGlowLoc = -1;
     // Slot-6-specific uniforms (only present in the iridescent shader; any
     // ObjShape that uses the default shader leaves these at -1 and skips
@@ -51,6 +52,13 @@ struct ObjShape
     bool   useCustomLight   = false;
     vec3   customLightPos   = vec3(0.0f, 0.0f, 0.0f);
     void   setCustomLight(const vec3& p) { useCustomLight = true; customLightPos = p; }
+
+    // Optional per-slot light COLOR (Tier 2). Defaults to white (neutral) so
+    // slots that don't set it look exactly as before. A warm/cool tint gives
+    // each shrine its own mood. This is a single global value per draw, so it
+    // never reintroduces a seam at the solved join (see fshader_impossible).
+    vec3   customLightColor = vec3(1.0f, 1.0f, 1.0f);
+    void   setCustomLightColor(const vec3& c) { customLightColor = c; }
     GLint  isBallLoc = -1;
 
     // ── Ball mesh (per-instance — owns a sphere VAO for the indicator) ────
@@ -201,6 +209,7 @@ struct ObjShape
         shaderProgram  = InitShader(vs, fs);
 
         lightLoc           = glGetUniformLocation(shaderProgram, "uLightPos");
+        lightColorLoc      = glGetUniformLocation(shaderProgram, "uLightColor");
         eyeLoc             = glGetUniformLocation(shaderProgram, "uEyePos");
         timeLoc            = glGetUniformLocation(shaderProgram, "uTime");
         heightLoc          = glGetUniformLocation(shaderProgram, "uObjHeight");
@@ -796,6 +805,9 @@ struct ObjShape
                             ? customLightPos
                             : vec3(eye.x * 0.8f, eye.y * 1.6f, eye.z * 1.2f);
         glUniform3fv(lightLoc, 1, &lightPos.x);
+        // Per-slot light tint (Tier 2). Always fed (white by default) so the
+        // uniform is never left at 0 → black. Guarded for shaders lacking it.
+        if (lightColorLoc >= 0) glUniform3fv(lightColorLoc, 1, &customLightColor.x);
         glUniform3fv(eyeLoc, 1, &eye.x);
         glUniform1f(timeLoc, (float)now);
         glUniform1f(heightLoc, objHeight);

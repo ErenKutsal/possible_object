@@ -1,4 +1,3 @@
-#include "background.h"
 #include "obj_shape.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,12 +16,12 @@ static ObjShape g_shape;
 static ObjColorPalette continuous_palette()
 {
     ObjColorPalette p;
-    p.xp = vec4(0.62f, 0.72f, 0.88f, 1.0f);  // X+ — pale slate
-    p.xn = vec4(0.46f, 0.56f, 0.72f, 1.0f);  // X-
-    p.yp = vec4(0.74f, 0.82f, 0.92f, 1.0f);  // Y+ — light sky
-    p.yn = vec4(0.52f, 0.62f, 0.78f, 1.0f);  // Y-
-    p.zp = vec4(0.68f, 0.74f, 0.82f, 1.0f);  // Z+ — silver-blue
-    p.zn = vec4(0.50f, 0.58f, 0.70f, 1.0f);  // Z-
+    p.xp = vec4(0.62f, 0.72f, 0.88f, 1.0f);   // X+ — pale slate
+    p.xn = vec4(0.46f, 0.56f, 0.72f, 1.0f);   // X-
+    p.yp = vec4(0.74f, 0.82f, 0.92f, 1.0f);   // Y+ — light sky
+    p.yn = vec4(0.52f, 0.62f, 0.78f, 1.0f);   // Y-
+    p.zp = vec4(0.68f, 0.74f, 0.82f, 1.0f);   // Z+ — silver-blue
+    p.zn = vec4(0.50f, 0.58f, 0.70f, 1.0f);   // Z-
     p.generic = vec4(0.58f, 0.66f, 0.78f, 1.0f);
     return p;
 }
@@ -58,32 +57,8 @@ void penrose_init()
         { vec3(-5.0f,  0.0f, -5.0f), vec3(1.0f, 0.0f, 1.0f) },  // D: Y-bar 2 up
         { vec3(-5.0f, -5.0f, -5.0f), vec3(1.0f, -1.0f, 0.0f) }, // E: impossible-jump up (any perp to iso)
     }, /*thickness=*/1.0f, /*ballRadius=*/0.45f);
-
-    // Initialize lattice background
-    bg_init_lattice();
 }
-void penrose_display()
-{
-    // Begin background rendering
-    bg_begin_scene();
-
-    // Get camera info and draw lattice background FIRST (so it appears behind)
-    double now = glfwGetTime();
-    vec3 eye = g_shape.cameraEye;
-    vec3 at(0.0f, 0.0f, 0.0f);
-    vec3 cam_forward = normalize(eye - at);
-    vec3 cam_right = normalize(cross(vec3(0, 1, 0), cam_forward));
-    vec3 cam_up = normalize(cross(cam_forward, cam_right));
-    float view_size = 9.5f;
-
-    bg_draw_lattice(eye, cam_right, cam_up, cam_forward, view_size, (float)now);
-
-    // Render the penrose triangle on top
-    g_shape.display();
-
-    // End background rendering (applies bloom and outputs to screen)
-    bg_end_scene();
-}
+void penrose_display() { g_shape.display(); }
 void penrose_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }
 void penrose_cursorPosCallback(GLFWwindow*, double x, double y) { g_shape.cursorPos(x, y); }
 void penrose_scrollCallback(GLFWwindow*, double, double y) { g_shape.scroll(y); }

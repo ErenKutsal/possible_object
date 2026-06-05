@@ -1,5 +1,4 @@
 #include "includes.h"
-#include "background.h"
 #include <cstdlib>   // rand, srand
 #include <ctime>     // time
 
@@ -407,9 +406,6 @@ void polygon_init()
     // in the "unsolved" pose — player has to press S to snap it back to the
     // magic angle and see the illusion click.
     polygon_randomize_unsolved();
-
-    // Initialize the Escher background for when the polygon is solved
-    bg_init_escher();
 }
 
 // =============================================
@@ -472,9 +468,6 @@ void polygon_display()
     float current_time = glfwGetTime();
 
     glUseProgram(program);
-
-    // Begin background rendering (binds framebuffer and clears)
-    bg_begin_scene();
 
     // --- SPIN MATH (hold SPACE → momentum spin) ---
     if (last_frame_time == 0.0f) last_frame_time = current_time;
@@ -587,17 +580,6 @@ void polygon_display()
     glUniform3fv(light_pos_loc, 1, &lightPos.x);
     glUniform3fv(eye_pos_loc, 1, &eye.x);
     glUniform1i(num_segments_loc, num_segments);
-
-    // Draw the Escher background first (so it appears behind the polygon)
-    // Calculate camera info for the background
-    vec3 cam_right = normalize(cross(vec3(0, 1, 0), normalize(eye - at)));
-    vec3 cam_up = normalize(cross(normalize(eye - at), cam_right));
-    vec3 cam_forward = normalize(eye - at);
-
-    bg_draw_escher(eye, cam_right, cam_up, cam_forward, view_size, current_time);
-
-    // Switch back to polygon program for rendering
-    glUseProgram(program);
 
     // ─── BALL POSITION on the figure's surface ─────────────────────────────
     // The ball lives in two surface coordinates (ball_s, ball_u) — see decl.
@@ -854,9 +836,6 @@ void polygon_display()
     // It's the "reward" indicator: solve it, and the little yellow ball runs
     // around the impossible loop, jumping the seam invisibly.
     if (is_locked) display_ball(viewProj, global_spin, ball_local_pos);
-
-    // End background rendering (applies bloom and outputs to screen)
-    bg_end_scene();
 
     glFinish();
 }

@@ -1,4 +1,3 @@
-#include "background.h"
 #include "obj_shape.h"
 
 // REPURPOSED: this slot now hosts the Penrose Stair, loaded from
@@ -13,11 +12,11 @@ static ObjShape g_shape;
 static ObjColorPalette stair_palette()
 {
     ObjColorPalette p;
-    p.xp = vec4(0.20f, 0.46f, 0.80f, 1.0f);  // medium blue side
+    p.xp = vec4(0.20f, 0.46f, 0.80f, 1.0f);   // medium blue side
     p.xn = vec4(0.16f, 0.36f, 0.66f, 1.0f);
-    p.yp = vec4(0.08f, 0.22f, 0.56f, 1.0f);  // dark blue front
+    p.yp = vec4(0.08f, 0.22f, 0.56f, 1.0f);   // dark blue front
     p.yn = vec4(0.06f, 0.16f, 0.42f, 1.0f);
-    p.zp = vec4(0.52f, 0.78f, 0.95f, 1.0f);  // light blue top
+    p.zp = vec4(0.52f, 0.78f, 0.95f, 1.0f);   // light blue top
     p.zn = vec4(0.20f, 0.30f, 0.55f, 1.0f);
     p.generic = vec4(0.30f, 0.40f, 0.70f, 1.0f);
     return p;
@@ -30,27 +29,10 @@ void penrose_block_init()
     // Spin the stair 25° around Y so it doesn't read like just another
     // axis-aligned figure when sitting between Impossible Arch (#7) and
     // Reutersvard Rectangle (#9) in the menu. R-key resets to this too.
-    g_shape.angleY = 25.0f;
+    g_shape.angleY        = 25.0f;
     g_shape.defaultAngleY = 25.0f;
-
-    // Initialize Julia set background
-    bg_init_julia();
 }
-void penrose_block_display()
-{
-    // Begin background rendering
-    bg_begin_scene();
-
-    // Draw Julia set background FIRST (so it appears behind)
-    double now = glfwGetTime();
-    bg_draw_julia((float)now);
-
-    // Render the penrose stair on top
-    g_shape.display();
-
-    // End background rendering (applies bloom and outputs to screen)
-    bg_end_scene();
-}
+void penrose_block_display() { g_shape.display(); }
 void penrose_block_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }
 void penrose_block_cursorPosCallback(GLFWwindow*, double x, double y) { g_shape.cursorPos(x, y); }
 void penrose_block_scrollCallback(GLFWwindow*, double, double y) { g_shape.scroll(y); }

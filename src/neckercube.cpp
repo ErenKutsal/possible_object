@@ -1,4 +1,3 @@
-#include "background.h"
 #include "obj_shape.h"
 
 // Impossible Cube — loaded from models/impossible_cube.obj
@@ -27,32 +26,9 @@ void cube_init()
     // This Paradox cube has a larger bounding box than the other figures —
     // pull the ortho frustum out a bit so it appears at a similar on-screen
     // size as slots 2, 3, 5–8.
-    g_shape.orthoSize = 12.5f;  // was 9.5 (the shared default)
-
-    // Initialize tunnel background
-    bg_init_tunnel();
+    g_shape.orthoSize = 12.5f;   // was 9.5 (the shared default)
 }
-void cube_display()
-{
-    // Begin background rendering
-    bg_begin_scene();
-
-    // Get camera info and draw tunnel background FIRST (so it appears behind)
-    double now = glfwGetTime();
-    vec3 eye = g_shape.cameraEye;
-    vec3 at(0.0f, 0.0f, 0.0f);
-    vec3 cam_forward = normalize(eye - at);
-    vec3 cam_right = normalize(cross(vec3(0, 1, 0), cam_forward));
-    vec3 cam_up = normalize(cross(cam_forward, cam_right));
-
-    bg_draw_tunnel(eye, cam_right, cam_up, cam_forward, (float)now);
-
-    // Render the cube on top
-    g_shape.display();
-
-    // End background rendering (applies bloom and outputs to screen)
-    bg_end_scene();
-}
+void cube_display() { g_shape.display(); }
 void cube_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }
 void cube_cursorPosCallback(GLFWwindow*, double x, double y) { g_shape.cursorPos(x, y); }
 void cube_scrollCallback(GLFWwindow*, double, double y) { g_shape.scroll(y); }
