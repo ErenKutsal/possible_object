@@ -247,16 +247,17 @@ void main()
                 * uLockGlow;
     litColor += strike;
 
-    // (2) THE OBJECT BURNS — fire TRACES along the impossible loop ────────────
-    // After the puzzle LOCKS, a flame front sweeps slowly around the figure,
-    // leaving burning embers behind it and a white-hot leading edge eating
-    // forward — so the fire "draws" the impossible loop. Because the figure is
-    // a loop that never ends, the trace reads as travelling around it forever.
-    // Gated for zero regression on every neutral-lit slot:
-    //   • warmth → only the amber-lit arch slot (0 for the rest); the ROCK
-    //     texture is present on the arch from the start — even unsolved — so the
-    //     puzzle reads as a stone arch. The LAVA is gated separately below by
-    //     uPostSolveTime, so the unsolved figure is bare rock with no glow.
+    // (2) GENERATIVE ROCK + LAVA — Tier-2 effect on the Impossible Arch ────────
+    // The arch is rendered as cracked basalt with glowing lava in the crevices:
+    //   • UNSOLVED: pure stone, no glow — the puzzle is a rock arch to rotate.
+    //   • ON LOCK:  the LAVA REVEAL — a clock-sweep traces the loop loading
+    //               lava into the cracks (plays ONCE, ~7s).
+    //   • SETTLED:  rock pattern rotates gently CCW, lava noise drifts CCW in
+    //               the cracks, and a warm bloom continuously sweeps the loop
+    //               (the reveal's lead glow continued at slightly lower amp).
+    // Gated for zero regression on every neutral-lit slot — `warmth` is ~0.52
+    // on the amber-lit arch, ~0 on the white-lit rest, so this whole block is
+    // a no-op for everything except slot 4.
     if (warmth > 0.001)
     {
         const float PI = 3.14159265;
@@ -273,33 +274,22 @@ void main()
         angle += 0.035 * sin(vScreenX * 26.0 + vScreenY * 19.0);
 
         // ── REVEAL TIMELINE ─────────────────────────────────────────────────
-        //  (a) ROCK is ALWAYS present on the arch — even unsolved, so the figure
-        //      reads as a stone arch the player rotates to align.
-        //  (b) On solve, after a short beat the LAVA TRACES around the loop like
-        //      a CLOCK HAND (one rotational direction): cracks behind the
-        //      sweeping front light molten, rock ahead of it stays cold.
-        //      Angular, not radial, so it reads as a single tracing sweep;
-        //      seam-safe because it's a function of screen position only.
-        float rockReveal = 1.0;                // rock is always there
-        const float LAVA_DELAY = 0.7;          // see bare rock this long after solve
-        const float LAVA_TRACE = 6.0;          // seconds for the hand to sweep the loop
+        // After lock, wait LAVA_DELAY seconds (bare rock), then a clock-hand
+        // sweep loads the lava angularly around the loop over LAVA_TRACE
+        // seconds. Past 1.10 the sweep has fully wrapped → every crack glows.
+        const float LAVA_DELAY = 0.7;
+        const float LAVA_TRACE = 6.0;
         float lavaT       = max(uPostSolveTime - LAVA_DELAY, 0.0);
         float lavaActive  = step(0.001, lavaT);   // 0 until the trace begins (kills the branch-cut sliver)
-        float lavaFront   = lavaT / LAVA_TRACE * 1.10;   // 0→1 around the loop (a touch past)
-        float traceW      = 0.13;              // soft width of the sweeping front
+        float lavaFront   = lavaT / LAVA_TRACE * 1.10;
+        float traceW      = 0.13;
         float lavaReveal  = lavaActive * (1.0 - smoothstep(lavaFront - traceW, lavaFront + traceW, angle));
 
-        float ignite  = rockReveal;   // rock always shows; lava traces within it
-        float ignTime = 1.0;
-
-        if (ignite > 0.001)
         {
-            // ── STATIC GENERATIVE ROCK, LAVA CREEPS IN THE CRACKS ───────────
-            // The rock structure (plates, cracks, grain, relief) is SOLID and
-            // does NOT rotate — the only motion is the slow lava creep in the
-            // cracks and the circular load above. Everything samples the
-            // seam-safe rp coordinate (function of N + screen pos) so the rock
-            // matches across the magic join.
+            // ── GENERATIVE ROCK + LAVA ──────────────────────────────────────
+            // Everything below samples the seam-safe rp coordinate (function of
+            // face normal + screen position) so the plates, cracks, relief and
+            // flow all match across the magic join.
             // ── 3D-ANCHORED FLOW ─────────────────────────────────────────────
             // The flames must read as licking ALONG each beam's real surface, not
             // sliding flatly across the screen silhouette. Everything below is a
@@ -396,18 +386,11 @@ void main()
             vec2  lavaCoord = rc * 1.6 - lavaTan * (uTime * 0.055);
             float lavaFlow  = 0.60 + 0.40 * (0.5 + 0.5 * snoise(vec3(lavaCoord, uTime * 0.045)));
 
-            // FLOW PULSE — a brightness wave travels CCW around the loop in the
-            // SAME sense as the rock+lava drift, so the eye gets an unmistakable
-            // direction cue and traces the impossible loop's path. Subtle (±8%)
-            // — visible motion direction, not strobing. Function of (angle,time)
-            // only, so it's seam-safe and runs the loop without a branch step.
-            // Two cycles around the loop give a clearer directional rhythm than
-            // one — bright crests visibly TRAVEL around the loop together with
-            // the rock+lava drift, so the eye locks onto the flow direction.
-            // Two cycles around the loop (was 12.566 = 2π·2 which gave a dozen
-            // peaks — too busy). Two opposing bright stretches travel CW with
-            // time, a subtle directional rhythm under the comet.
-            float flowPhase = angle * 2.0 + uTime * 0.95;   // CCW like the comet
+            // FLOW PULSE — two opposing brightness crests travel CCW around the
+            // loop with the rock+lava drift, so the molten brightness has a
+            // subtle directional rhythm. Function of (angle, time) only, so
+            // seam-safe; ±18% amplitude — visible motion, not strobing.
+            float flowPhase = angle * 2.0 + uTime * 0.95;
             float flowPulse = 0.88 + 0.18 * sin(flowPhase);
 
             // The cracks only glow molten where the circular load has PASSED;
@@ -477,8 +460,7 @@ void main()
 
             // Re-assert the dark edge lines so face boundaries stay legible.
             lava *= (1.0 - 0.55 * edge);
-            // Rock crusts over first; the molten cracks are revealed within it.
-            litColor = mix(litColor, lava, ignite * ignTime);
+            litColor = lava;
         }
 
         // ── REVEAL FRONT — a bright warm bloom riding the clock-sweep that
@@ -486,7 +468,7 @@ void main()
         // completes (lavaFront passes 1.05).
         float lead       = exp(-pow((angle - lavaFront) / (traceW * 1.2), 2.0));
         float leadActive = (1.0 - smoothstep(0.80, 1.05, lavaFront)) * step(0.001, lavaT);
-        litColor += vec3(1.0, 0.66, 0.28) * lead * leadActive * warmth * 1.3 * rockReveal;
+        litColor += vec3(1.0, 0.66, 0.28) * lead * leadActive * warmth * 1.3;
 
         // ── AMBIENT SWEEPING LIGHT — almost the same as the reveal's lead glow,
         // just continuous: same warm bloom colour, same falloff width, same
@@ -500,7 +482,7 @@ void main()
         angDiff         = min(angDiff, 1.0 - angDiff);         // shortest distance, wrap-safe
         float ambLead   = exp(-pow(angDiff / (traceW * 1.2), 2.0));   // SAME width as reveal lead
         float ambActive = smoothstep(1.0, 1.20, lavaFront);    // kicks in once reveal is done
-        litColor += vec3(1.0, 0.66, 0.28) * ambLead * ambActive * warmth * 1.15 * rockReveal;
+        litColor += vec3(1.0, 0.66, 0.28) * ambLead * ambActive * warmth * 1.15;
     }
 
     litColor  = min(litColor, vec3(1.0));
