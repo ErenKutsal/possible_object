@@ -1,6 +1,7 @@
 #version 150
 
 in vec3 fragPos;
+in vec3 vModelPos;   // model-space position (rock texture coord — rotation-invariant)
 in vec4 fragColor;
 in float vScreenY;
 in float vScreenX;
@@ -311,26 +312,41 @@ void main()
             vec2  axis  = flen > 1e-4 ? fa / flen : vec2(1.0, 0.0);
             float slant = clamp(facing, 0.40, 1.0);         // 1=face-on … small=edge-on
 
-            //  (2) ROCK DRIFT — a slow continuous rotation of the rock sample coord
-            //      around the figure centre. On each beam's silhouette this maps to
-            //      flow along the beam's length in the CCW direction (top→left,
-            //      left→down, bottom→right, right→up — matching the arrows). It's
-            //      a smooth curl field, so no shear streaks at corners. The ball
-            //      below is the prominent direction marker; this rotation gives the
-            //      rock itself a continuous surface-following motion underneath.
-            //      Slow enough to read as a quiet current, not a swirl.
+            //  (2) MODEL-SPACE ROCK COORDINATE — locks the texture to the figure.
+            //      vModelPos is the position BEFORE the model rotation, so as the
+            //      player turns the object the rock pattern rotates with it (the
+            //      pattern is glued to each physical surface point). N_m is the
+            //      face normal in model space, derived from dFdx/dFdy of vModelPos
+            //      — also rotation-invariant. Box-mapping picks the in-plane axes
+            //      per face by dominant N component, the standard cheap procedural
+            //      mapping when there are no UVs.
+            //
+            //      Trade-off: at the magic join two physically-separate vertices
+            //      have DIFFERENT model coords, so a slight texture seam can show
+            //      there once locked. The figure-rotates-with-the-rock behaviour
+            //      is the priority — this is what the user is interacting with
+            //      while solving.
+            vec3 dx_m = dFdx(vModelPos);
+            vec3 dy_m = dFdy(vModelPos);
+            vec3 N_m  = normalize(cross(dx_m, dy_m));
+            vec3 aNm  = abs(N_m);
+            vec2 rpBase;
+            if      (aNm.y > aNm.x && aNm.y > aNm.z) rpBase = vModelPos.xz;
+            else if (aNm.x > aNm.z)                  rpBase = vModelPos.yz;
+            else                                     rpBase = vModelPos.xy;
+            // Normalise: model-space units are typically O(few) for the loaded
+            // OBJs; bring rpBase down so the downstream constants (5.5, 17, 38
+            // — tuned against the previous screen-space rp in [-0.5, 0.5]) still
+            // yield Voronoi cells, grain frequencies and crack widths of the
+            // same on-screen scale they always did.
+            rpBase *= 0.1;
+
+            // Slow post-solve drift, applied in 2D on the projected coord —
+            // gives a quiet on-surface current after lock without breaking the
+            // surface-locked behaviour during solving (uPostSolveTime == 0 then).
             float spin = uPostSolveTime * 0.022;
             float csR = cos(spin), snR = sin(spin);
-            vec2  rd  = vec2(d.x * csR + d.y * snR,
-                            -d.x * snR + d.y * csR);
-
-            // Stretch the sample coordinate along the recede axis (1/slant) so the
-            // flame texture appears COMPRESSED along that axis on the slanted face.
-            // Gentle foreshortening — enough to read as 3D-mapped, but scaled
-            // down (×0.55) so the most edge-on faces don't comb into hard streaks.
-            float al  = dot(rd, axis);
-            float fs  = (1.0 / slant - 1.0) * 0.55;
-            vec2  rp  = rd + axis * (al * fs);
+            vec2  rp  = mat2(csR, snR, -snR, csR) * rpBase;
 
             // ── GENERATIVE ROCK + SLOW LAVA (procedural, seam-safe) ──────────
             // Built the way generative-rock shaders do it: domain-warped VORONOI
