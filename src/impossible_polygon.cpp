@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "polygon_bg.h"
 #include <cstdlib>   // rand, srand
 #include <ctime>     // time
 
@@ -52,6 +53,7 @@ GLint  mvp_loc;
 GLint  color_loc;
 GLint  light_pos_loc, eye_pos_loc, model_loc, bar_t_loc, base_color_loc;
 GLint  num_segments_loc;
+static GLint lock_glow_loc = -1;  // uLockGlow — HDR boost when solved
 
 // ── Ball state ────────────────────────────────────────────────────────────
 // Two-coordinate surface parameter:
@@ -80,7 +82,7 @@ const float BALL_RADIUS   = 0.04f;
 std::vector<vec3> sphere_vertices;
 std::vector<vec3> sphere_normals;
 GLuint sphere_vao = 0, sphere_vbo = 0, sphere_nbo_id = 0;
-GLuint ball_pos_loc = 0, is_ball_loc = 0;
+GLuint ball_pos_loc = 0, is_ball_loc = 0, ball_color_loc = 0;
 
 // WASD held-flags (event-driven press/release → polled every frame).
 bool   key_w_held = false;
@@ -349,6 +351,7 @@ void polygon_init()
     num_segments_loc = glGetUniformLocation(program, "uNumSegments");
     ball_pos_loc     = glGetUniformLocation(program, "uBallPos");
     is_ball_loc      = glGetUniformLocation(program, "uIsBall");
+    ball_color_loc   = glGetUniformLocation(program, "uBallColor");
 
     // Full-bar VAO
     glGenVertexArrays(1, &segment_vao);
@@ -406,12 +409,17 @@ void polygon_init()
     // in the "unsolved" pose — player has to press S to snap it back to the
     // magic angle and see the illusion click.
     polygon_randomize_unsolved();
+
+    // Initialise the bloom pipeline + background shaders.
+    // Must come AFTER the GL context is current and screen_w / screen_h are set.
+    lock_glow_loc = glGetUniformLocation(program, "uLockGlow");
+    polygon_bg_init();
 }
 
 // =============================================
 // Ball
 // =============================================
-void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos)
+void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos, vec3 ballColor)
 {
     vec4 wbp = global_spin * vec4(local_pos.x, local_pos.y, local_pos.z, 1.0f);
     vec3 world_ball_pos(wbp.x, wbp.y, wbp.z);
@@ -427,7 +435,6 @@ void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos)
     glUniformMatrix4fv(model_loc, 1, GL_FALSE, &ball_model.d[0].x);
 
     glUniform1i(is_ball_loc, 1);
-    vec3 ballColor(1.0f, 0.85f, 0.2f);
     glUniform3fv(base_color_loc, 1, &ballColor.x);
     glUniform1f(bar_t_loc, ball_s);   // ball_s drives the Escher gradient too
 
@@ -576,10 +583,33 @@ void polygon_display()
         viewProj = proj * view;
     }
 
+    // ── Background bloom pre-pass ──────────────────────────────────────────
+    // begin_scene binds the HDR scene FBO and clears it.  bg_draw renders
+    // the chosen background (camera-aware, no depth write) before the
+    // polygon geometry is drawn into the same FBO.
+    polygon_bg_begin_scene();
+    {
+        vec3 fwd = normalize(at - eye);               // eye → origin
+        vec3 rgt = normalize(cross(fwd, vec3(0,1,0)));
+        // Guard against degenerate up (camera directly above/below)
+        if (rgt.x == 0.0f && rgt.y == 0.0f && rgt.z == 0.0f)
+            rgt = vec3(1, 0, 0);
+        vec3 bgUp = normalize(cross(rgt, fwd));
+        polygon_bg_draw(eye, rgt, bgUp, fwd, aspect, current_time, num_segments);
+    }
+    // Restore the polygon's shader program after the background draw changed it.
+    glUseProgram(program);
+    // ──────────────────────────────────────────────────────────────────────
+
     vec3 lightPos(2.0f, 3.0f, 2.0f);
     glUniform3fv(light_pos_loc, 1, &lightPos.x);
     glUniform3fv(eye_pos_loc, 1, &eye.x);
     glUniform1i(num_segments_loc, num_segments);
+    // Upload lock glow: sustained low-level HDR boost while locked + pulse burst
+    if (lock_glow_loc >= 0) {
+        float sustained = is_locked ? 0.12f : 0.0f;
+        glUniform1f(lock_glow_loc, sustained + lock_glow);
+    }
 
     // ─── BALL POSITION on the figure's surface ─────────────────────────────
     // The ball lives in two surface coordinates (ball_s, ball_u) — see decl.
@@ -689,14 +719,59 @@ void polygon_display()
         ball_local_pos = vec3(wp.x, wp.y, wp.z);
     }
 
-    // ── Sage / mint-green palette ─────────────────────────────────────────
-    // Slots 2-8 each have their own family (slate-blue, warm clay, lilac,
-    // deep blue, ...). Slot 1 gets a sage-green family — a unique hue in
-    // the lineup, matched in STRUCTURE to slot 2's 3-tone (top / bottom /
-    // tip-caps) so the figure visually belongs to the same set.
-    vec3 topColor(0.74f, 0.88f, 0.74f);   // top faces  — light sage
-    vec3 botColor(0.50f, 0.72f, 0.56f);   // bottom     — medium pine
-    vec3 tipColor(0.36f, 0.56f, 0.44f);   // end caps   — deep forest
+    // Helper to get adjusted ball position for a given target zDepth
+    auto get_adjusted_ball_pos = [&](float zDepth_draw) {
+        if (!is_locked) return vec3(1.0e6f, 1.0e6f, 1.0e6f);
+        
+        int N = num_segments;
+        int k = (int)floorf(ball_s * (float)N + 0.5f);
+        float zDepth_ball = 0.0f;
+        if (k == 0) zDepth_ball = (float)N * zStep;
+        else if (k >= N) zDepth_ball = 0.0f;
+        else zDepth_ball = (float)(N - k) * zStep;
+
+        vec3 light = ball_local_pos;
+        // Adjust the Z coordinate of the ball to match the target Z plane
+        light.z = light.z - zDepth_ball + zDepth_draw;
+        return light;
+    };
+
+    // ── Per-background colour palette ─────────────────────────────────────────
+    // Background index = (num_segments - 3) % 4  (mirrors polygon_bg.cpp)
+    //   0 → Escher corridor  : jade / emerald greens
+    //   1 → Mandelbulb       : deep violet + warm gold
+    //   2 → Gyroid SDF       : dark teal + cyan
+    //   3 → Neon N-gon tunnel: electric cyan + hot magenta
+    vec3 topColor, botColor, tipColor;
+    vec3 ballColor;
+    switch ((num_segments - 3) % 4) {
+        case 0:  // jade-green — echoes the Escher corridor walls
+            topColor = vec3(0.55f, 0.82f, 0.58f);
+            botColor = vec3(0.28f, 0.58f, 0.36f);
+            tipColor = vec3(0.14f, 0.38f, 0.22f);
+            ballColor = vec3(0.20f, 0.95f, 0.40f); // bright neon green
+            break;
+        case 1:  // violet + gold — matches Mandelbulb deep-purple/gold palette
+            topColor = vec3(0.72f, 0.55f, 0.92f);
+            botColor = vec3(0.48f, 0.20f, 0.70f);
+            tipColor = vec3(0.82f, 0.68f, 0.18f);
+            ballColor = vec3(1.00f, 0.82f, 0.15f); // bright golden yellow
+            break;
+        case 2:  // teal + ice-cyan — matches Gyroid teal/navy palette
+            topColor = vec3(0.40f, 0.82f, 0.82f);
+            botColor = vec3(0.14f, 0.52f, 0.62f);
+            tipColor = vec3(0.06f, 0.30f, 0.42f);
+            ballColor = vec3(0.00f, 0.95f, 0.95f); // bright electric cyan
+            break;
+        default: // electric cyan + magenta — matches Neon tunnel palette
+            topColor = vec3(0.15f, 0.88f, 0.95f);
+            botColor = vec3(0.88f, 0.18f, 0.65f);
+            tipColor = vec3(0.06f, 0.55f, 0.72f);
+            ballColor = vec3(1.00f, 0.15f, 0.75f); // bright hot pink/magenta
+            break;
+    }
+
+    glUniform3fv(ball_color_loc, 1, &ballColor.x);
 
     // While locked, brighten the palette by lock_glow so the figure visibly
     // pulses. Clamp to [0,1] so we don't blow out the shader.
@@ -710,6 +785,7 @@ void polygon_display()
     vec3 botC = add_glow(botColor);
     vec3 tipC = add_glow(tipColor);
 
+
     // Helper: draw one bar's faces in 3 colored chunks (12 verts each:
     // 0..11 = top faces, 12..23 = bottom faces, 24..35 = tip caps).
     // Matches the simple 3-tone look of slot 2's Penrose Triangle.
@@ -719,14 +795,6 @@ void polygon_display()
         glUniform3fv(base_color_loc, 1, &tipC.x); glDrawArrays(GL_TRIANGLES, 24, 12);
     };
 
-    // (L is already computed up in the ball-positioning block above.)
-
-    // When the polygon is UNSOLVED, push the ball-light point so far away
-    // that the shader's 1/(1+15·d²) attenuation kills it to zero. Otherwise
-    // the leftover ball position (often near 0,0,0 — right at the cut) bleeds
-    // a yellow glow into bar 0's bisect cut even though the ball isn't drawn.
-    vec3 FAR_BALL(1.0e6f, 1.0e6f, 1.0e6f);
-
     // Bars 1 .. N-1 — full mitered segments, spiraling down in z.
     for (int bar_index = 1; bar_index < num_segments; bar_index++)
     {
@@ -734,23 +802,7 @@ void polygon_display()
         float zDepth = -bar_index * zStep + (num_segments * zStep);
         float bar_t  = (float)bar_index / num_segments;
 
-        // Teleport the lighting source across the seam so the illusion's z-jump
-        // doesn't cast inconsistent shadows on the front/back bars. (Only
-        // when locked — otherwise we just use the far-away kill point.)
-        vec3 light_for_this_bar;
-        if (is_locked)
-        {
-            vec3 illusory_light_pos = ball_local_pos;
-            float loop_length = num_segments * zStep;
-            if (ball_s - bar_t > 0.5f)       illusory_light_pos.z += loop_length;
-            else if (bar_t - ball_s > 0.5f)  illusory_light_pos.z -= loop_length;
-            light_for_this_bar = illusory_light_pos;
-        }
-        else
-        {
-            light_for_this_bar = FAR_BALL;
-        }
-
+        vec3 light_for_this_bar = get_adjusted_ball_pos(zDepth);
         vec4 wbp = global_spin * vec4(light_for_this_bar.x, light_for_this_bar.y, light_for_this_bar.z, 1.0f);
         glUniform3fv(ball_pos_loc, 1, &wbp.x);
 
@@ -767,50 +819,20 @@ void polygon_display()
     }
 
     // Bar 0 — THE DEPTH-TRICK BAR. Drawn as two half-segments at different z.
-    //   left half  : at z = N*zStep (top), joins bar 1 on its left mitered end
-    //   right half : at z = 0       (bot), joins bar N-1 on its left mitered end
-    //                                      (we rotate it 180° so its mitered
-    //                                       end faces toward bar N-1)
-    // The flat right-tip cut on each half sits at x=0, and in the default ortho
-    // view both cuts project to the same vertical screen line → polygon closes.
     {
         float zDepth_top = num_segments * zStep;  // bar 0's nominal z
         float zDepth_bot = 0.0f;                  // jumped-down z for right half
 
-        // Bar 0's two halves are at VERY different z (top vs bottom). Each
-        // half deserves its own ball-light position so the dynamic light
-        // looks correct on both — using the same light position for both
-        // would over-bright one half and starve the other.
-        //
-        //   ball_t in [0, 0.5] → ball is on the "first half" of the loop
-        //       (bar 0 LEFT or descending the spiral). Light bar 0 LEFT
-        //       with the ball's actual position; teleport DOWN by loop_length
-        //       to light bar 0 RIGHT (so it gets the same illumination as
-        //       if the ball were on the bottom-z side of the loop).
-        //   ball_t in [0.5, 1] → ball is on the "second half" (ascending
-        //       toward bar 0 RIGHT). Mirror logic — light bar 0 RIGHT with
-        //       ball pos, teleport UP for bar 0 LEFT.
         glUniform1i(is_ball_loc, 0);
         glUniform1f(bar_t_loc, 0.0f);
 
         glBindVertexArray(half_segment_vao);
 
-        auto send_bar0_light = [&](float bar_t_eff) {
-            if (!is_locked) {
-                vec4 wbp = global_spin * vec4(FAR_BALL.x, FAR_BALL.y, FAR_BALL.z, 1.0f);
-                glUniform3fv(ball_pos_loc, 1, &wbp.x);
-                return;
-            }
-            vec3 light = ball_local_pos;
-            float loop_length = num_segments * zStep;
-            if (ball_s - bar_t_eff >  0.5f) light.z += loop_length;
-            else if (bar_t_eff - ball_s > 0.5f) light.z -= loop_length;
-            vec4 wbp = global_spin * vec4(light.x, light.y, light.z, 1.0f);
-            glUniform3fv(ball_pos_loc, 1, &wbp.x);
-        };
-
         // Left half — bar 0 LEFT is the "start of the loop" (bar_t = 0).
-        send_bar0_light(0.0f);
+        vec3 light_l = get_adjusted_ball_pos(zDepth_top);
+        vec4 wbp_l = global_spin * vec4(light_l.x, light_l.y, light_l.z, 1.0f);
+        glUniform3fv(ball_pos_loc, 1, &wbp_l.x);
+
         mat4 model_l = lock_scale_mat * Translate(-L * 0.5f, radius, zDepth_top);
         mat4 mvp_l   = viewProj * global_spin * model_l;
         mat4 wmodel_l = global_spin * model_l;
@@ -819,11 +841,10 @@ void polygon_display()
         draw_bar_tritone();
 
         // Right half — bar 0 RIGHT is the "end of the loop" (bar_t = 1).
-        // Flipped 180° on Z AND X so its mitered tip points to +X (joining
-        // bar N-1's corner) AND its inner edge stays on the polygon-interior
-        // side after the flip. Translated to (+L/2, radius, 0) so its flat
-        // cut meets the left half's at world x=0, on the BOTTOM z plane.
-        send_bar0_light(1.0f);
+        vec3 light_r = get_adjusted_ball_pos(zDepth_bot);
+        vec4 wbp_r = global_spin * vec4(light_r.x, light_r.y, light_r.z, 1.0f);
+        glUniform3fv(ball_pos_loc, 1, &wbp_r.x);
+
         mat4 model_r = lock_scale_mat * Translate(L * 0.5f, radius, zDepth_bot) * RotateZ(180.0f) * RotateX(180.0f);
         mat4 mvp_r    = viewProj * global_spin * model_r;
         mat4 wmodel_r = global_spin * model_r;
@@ -835,7 +856,10 @@ void polygon_display()
     // Ball — only orbits / draws when the polygon is solved + locked.
     // It's the "reward" indicator: solve it, and the little yellow ball runs
     // around the impossible loop, jumping the seam invisibly.
-    if (is_locked) display_ball(viewProj, global_spin, ball_local_pos);
+    if (is_locked) display_ball(viewProj, global_spin, ball_local_pos, ballColor);
+
+    // ── Bloom composite: extract bright → Gaussian blur → add to scene ────
+    polygon_bg_end_scene();
 
     glFinish();
 }

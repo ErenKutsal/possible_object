@@ -53,6 +53,7 @@ add_executable(
     imposible.out
     src/main.cpp
     src/impossible_polygon.cpp
+    src/polygon_bg.cpp          # Bloom pipeline + interactive backgrounds (slot 0)
     # OBJ-loaded shapes (slots 1-5, 0-indexed 1-5)
     src/penrose.cpp
     src/neckercube.cpp
