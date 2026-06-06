@@ -24,6 +24,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
+# stb_image — single-header PNG loader (vendored via FetchContent, header-only).
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        master
+)
+FetchContent_MakeAvailable(stb)
+include_directories(${stb_SOURCE_DIR})
+
 add_library(imgui_lib STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp

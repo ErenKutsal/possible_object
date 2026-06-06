@@ -213,8 +213,11 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
-    // 16:10 — matches MacBook screen ratio (e.g. 1440x900, 2560x1600)
-    GLFWwindow* window = glfwCreateWindow(1280, 800, "Impossible Objects", NULL, NULL);
+    // Frame matches the aspect ratio of the landing UI background image
+    // renders/31d_colorwindows_4k.png (3840 × 3598, aspect ≈ 1.0673). 1280×1199
+    // keeps the width close to the previous 1280 and brings the height up to
+    // match the image so the background can fill the window without distortion.
+    GLFWwindow* window = glfwCreateWindow(1280, 1199, "Impossible Objects", NULL, NULL);
     if (!window) { glfwTerminate(); exit(EXIT_FAILURE); }
 
     glfwGetFramebufferSize(window, &screen_w, &screen_h);

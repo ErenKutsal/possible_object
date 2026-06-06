@@ -4,6 +4,12 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_opengl3.h"
 
+// stb_image — vendored single-header PNG/JPEG loader (FetchContent in CMake).
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+#include <cstdio>
+
 #define SHRINE_COUNT 8
 static const char* SHRINE_THEMES[SHRINE_COUNT] = {
     "Floral", "Stone", "Water", "Fire", "Cosmic", "Forge", "Glass", "Iron",
@@ -31,6 +37,34 @@ static const ImVec4 SHRINE_TINTS[SHRINE_COUNT] = {
     ImVec4(0.55f, 0.55f, 0.60f, 1.0f),  // Iron — steel grey
 };
 
+// ── Landing background image (Escher-style impossible architecture) ──────
+// Loaded once at ui_init from renders/landing_bg.jpg, drawn full-bleed
+// behind the title menu via ImGui's background draw list.
+static GLuint g_landing_tex = 0;
+static int    g_landing_w   = 0;
+static int    g_landing_h   = 0;
+
+static void load_landing_texture(const char* path)
+{
+    int channels = 0;
+    unsigned char* data = stbi_load(path, &g_landing_w, &g_landing_h, &channels, 4);
+    if (!data) {
+        fprintf(stderr, "[ui] failed to load landing image: %s (%s)\n",
+                path, stbi_failure_reason());
+        return;
+    }
+    glGenTextures(1, &g_landing_tex);
+    glBindTexture(GL_TEXTURE_2D, g_landing_tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, g_landing_w, g_landing_h, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    stbi_image_free(data);
+}
+
 void ui_init(GLFWwindow* window)
 {
     IMGUI_CHECKVERSION();
@@ -49,10 +83,18 @@ void ui_init(GLFWwindow* window)
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 150");
+
+    // Background image lives under <project>/renders/, and the binary runs
+    // from <project>/build/, so the relative path goes up one and into renders/.
+    load_landing_texture("../renders/landing_bg.jpg");
 }
 
 void ui_shutdown()
 {
+    if (g_landing_tex) {
+        glDeleteTextures(1, &g_landing_tex);
+        g_landing_tex = 0;
+    }
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -74,9 +116,7 @@ void ui_end_frame()
 bool ui_wants_mouse() { return ImGui::GetIO().WantCaptureMouse; }
 bool ui_wants_keyboard() { return ImGui::GetIO().WantCaptureKeyboard; }
 
-// ------------------------------------------------
-// Helpers
-// ------------------------------------------------
+// ─── Layout helpers ──────────────────────────────────────────────────────
 static void centered_text(const char* text, float scale)
 {
     ImGui::SetWindowFontScale(scale);
@@ -101,48 +141,112 @@ static ImGuiWindowFlags fullscreen_window_flags()
            ImGuiWindowFlags_NoScrollbar;
 }
 
-// ------------------------------------------------
-// Title screen
-// ------------------------------------------------
+// Draw the Escher landing image full-bleed plus a soft vertical darkening
+// so overlay text and buttons read clearly against the busy stone scene.
+static void draw_landing_background()
+{
+    if (!g_landing_tex) return;
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 sz = io.DisplaySize;
+    ImDrawList* dl = ImGui::GetBackgroundDrawList();
+    dl->AddImage((ImTextureID)(intptr_t)g_landing_tex,
+                 ImVec2(0, 0), sz,
+                 ImVec2(0, 0), ImVec2(1, 1));
+    // Vertical gradient darkening (top lighter → bottom darker) so the
+    // bottom-right button cluster sits on a deeper backdrop. Picked to read
+    // as a soft vignette, not a hard overlay.
+    dl->AddRectFilledMultiColor(
+        ImVec2(0, 0), sz,
+        IM_COL32(0,  0,  0,  60),  IM_COL32(0,  0,  0,  60),
+        IM_COL32(0,  0, 10, 170),  IM_COL32(0,  0, 10, 170));
+}
+
+// ─── Title screen ────────────────────────────────────────────────────────
 static void draw_title(AppState& state, GLFWwindow* window)
 {
-    ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(io.DisplaySize);
+    draw_landing_background();
 
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 sz = io.DisplaySize;
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(sz);
     ImGui::Begin("##title", nullptr, fullscreen_window_flags());
 
-    float h = ImGui::GetWindowSize().y;
-    ImGui::Dummy(ImVec2(0, h * 0.18f));
+    // ── Title block, upper-left (echoes the cyan/teal light pool on the
+    // upper-left of the Escher render so the text sits in the lit area).
+    const ImVec4 cream   = ImVec4(0.96f, 0.92f, 0.83f, 1.0f);
+    const ImVec4 dimcream= ImVec4(0.86f, 0.80f, 0.70f, 0.95f);
+    const ImVec4 magenta = ImVec4(0.86f, 0.34f, 0.58f, 0.92f);
+    const ImVec4 cyan    = ImVec4(0.36f, 0.78f, 0.82f, 0.92f);
 
-    centered_text("Impossible Shapes", 3.2f);
-    ImGui::Dummy(ImVec2(0, 8));
-    centered_text("An interactive showcase of optical illusions", 1.0f);
+    ImGui::SetCursorPos(ImVec2(72, 72));
+    ImGui::PushStyleColor(ImGuiCol_Text, cream);
+    ImGui::SetWindowFontScale(3.6f);
+    ImGui::TextUnformatted("Impossible Shapes");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
 
-    ImGui::Dummy(ImVec2(0, h * 0.12f));
+    ImGui::SetCursorPos(ImVec2(76, 160));
+    ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
+    ImGui::SetWindowFontScale(1.3f);
+    ImGui::TextUnformatted("An interactive showcase of optical illusions");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
 
-    ImVec2 btn(240, 48);
-    if (centered_button("Begin Journey", btn))
-    {
-        state = AppState::IN_SHAPE;
-    }
-    if (centered_button("Shrine Select", btn))
-    {
-        state = AppState::SHRINE_SELECT;
-    }
-    if (centered_button("Quit", btn))
-    {
-        glfwSetWindowShouldClose(window, GL_TRUE);
-    }
+    // ── Button cluster, bottom-right corner with a translucent dark panel.
+    const ImVec2 btn(260, 50);
+    const float pad   = 18.0f;
+    const float gap   = 12.0f;
+    const float panW  = btn.x + 2 * pad;
+    const float panH  = 3 * btn.y + 2 * gap + 2 * pad;
+    const float margin= 56.0f;
+    const ImVec2 panTL(sz.x - panW - margin, sz.y - panH - margin);
+    const ImVec2 panBR(panTL.x + panW, panTL.y + panH);
+
+    // Translucent dark panel
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        panTL, panBR, IM_COL32(10, 12, 18, 195), 14.0f);
+    // Subtle warm rim — picks up the brass-railing tone of the render
+    ImGui::GetWindowDrawList()->AddRect(
+        panTL, panBR, IM_COL32(180, 145, 90, 110), 14.0f, 0, 1.5f);
+
+    // Begin Journey — magenta accent (echoes the pink window glow at right)
+    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad));
+    ImGui::PushStyleColor(ImGuiCol_Button,         magenta);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(0.95f, 0.46f, 0.70f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(0.72f, 0.26f, 0.46f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_Text,           cream);
+    if (ImGui::Button("Begin Journey", btn)) state = AppState::IN_SHAPE;
+    ImGui::PopStyleColor(4);
+
+    // Shrine Select — cyan/teal accent (echoes the upper-left light pool)
+    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + btn.y + gap));
+    ImGui::PushStyleColor(ImGuiCol_Button,         cyan);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(0.50f, 0.88f, 0.90f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(0.24f, 0.62f, 0.66f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_Text,           ImVec4(0.07f, 0.10f, 0.12f, 1.0f));
+    if (ImGui::Button("Shrine Select", btn)) state = AppState::SHRINE_SELECT;
+    ImGui::PopStyleColor(4);
+
+    // Quit — quiet neutral
+    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + 2 * (btn.y + gap)));
+    ImGui::PushStyleColor(ImGuiCol_Button,         ImVec4(0.18f, 0.18f, 0.22f, 0.82f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(0.30f, 0.30f, 0.36f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(0.12f, 0.12f, 0.16f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_Text,           dimcream);
+    if (ImGui::Button("Quit", btn)) glfwSetWindowShouldClose(window, GL_TRUE);
+    ImGui::PopStyleColor(4);
 
     ImGui::End();
 }
 
-// ------------------------------------------------
-// Shrine select
-// ------------------------------------------------
+// ─── Shrine select ───────────────────────────────────────────────────────
+// Re-uses the same Escher backdrop so the menu reads as one continuous
+// "antechamber" rather than two visually unrelated screens.
 static void draw_shrine_select(AppState& state, int& selected_shape)
 {
+    draw_landing_background();
+
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(io.DisplaySize);
@@ -150,7 +254,9 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
     ImGui::Begin("##select", nullptr, fullscreen_window_flags());
 
     ImGui::Dummy(ImVec2(0, 32));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.96f, 0.92f, 0.83f, 1.0f));
     centered_text("Shrine Select", 2.5f);
+    ImGui::PopStyleColor();
     ImGui::Dummy(ImVec2(0, 24));
 
     // Card layout: SHRINE_COUNT cards in a row, fall back to multiple rows if narrow.
@@ -176,8 +282,11 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
             if (i > first) ImGui::SameLine(0.0f, gap);
 
             ImGui::PushID(i);
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(SHRINE_TINTS[i].x * 0.35f, SHRINE_TINTS[i].y * 0.35f,
-                                                          SHRINE_TINTS[i].z * 0.35f, 0.55f));
+            // Cards: darker translucent base so the underlying render still
+            // shows through, with the shrine's hue as a coloured tint.
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(SHRINE_TINTS[i].x * 0.22f,
+                                                          SHRINE_TINTS[i].y * 0.22f,
+                                                          SHRINE_TINTS[i].z * 0.22f, 0.78f));
             ImGui::BeginChild("##card", ImVec2(card_w, card_h), true,
                               ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
@@ -192,7 +301,6 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
             ImGui::Spacing();
             ImGui::TextWrapped("%s", SHRINE_NAMES[i]);
 
-            // Push the button to the bottom of the card.
             float remaining = ImGui::GetContentRegionAvail().y - 40;
             if (remaining > 0) ImGui::Dummy(ImVec2(0, remaining));
 
