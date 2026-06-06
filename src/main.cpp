@@ -68,70 +68,149 @@ static void key_for(int slot, GLFWwindow* w, int k, int s, int a, int m)
 {
     switch (slot)
     {
-        case 0: polygon_key_callback(w, k, s, a, m);    break;
-        case 1: penrose_keyCallback(w, k, s, a, m);     break;
-        case 2: pbp_keyCallback(w, k, s, a, m);         break;
-        case 3: cube_keyCallback(w, k, s, a, m);        break;
-        case 4: arch_keyCallback(w, k, s, a, m);        break;
-        case 5: archp_keyCallback(w, k, s, a, m);       break;
-        case 6: penrose_block_keyCallback(w, k, s, a, m); break;
-        case 7: reutersvard_keyCallback(w, k, s, a, m);   break;
+        case 0:
+            polygon_key_callback(w, k, s, a, m);
+            break;
+        case 1:
+            penrose_keyCallback(w, k, s, a, m);
+            break;
+        case 2:
+            pbp_keyCallback(w, k, s, a, m);
+            break;
+        case 3:
+            cube_keyCallback(w, k, s, a, m);
+            break;
+        case 4:
+            arch_keyCallback(w, k, s, a, m);
+            break;
+        case 5:
+            archp_keyCallback(w, k, s, a, m);
+            break;
+        case 6:
+            penrose_block_keyCallback(w, k, s, a, m);
+            break;
+        case 7:
+            reutersvard_keyCallback(w, k, s, a, m);
+            break;
     }
 }
 static void mouse_for(int slot, GLFWwindow* w, int b, int a, int m)
 {
     switch (slot)
     {
-        case 0: polygon_mouseButtonCallback(w, b, a, m); break;
-        case 1: penrose_mouseButtonCallback(w, b, a, m); break;
-        case 2: pbp_mouseButtonCallback(w, b, a, m);     break;
-        case 3: cube_mouseButtonCallback(w, b, a, m);    break;
-        case 4: arch_mouseButtonCallback(w, b, a, m);    break;
-        case 5: archp_mouseButtonCallback(w, b, a, m);   break;
-        case 6: penrose_block_mouseButtonCallback(w, b, a, m); break;
-        case 7: reutersvard_mouseButtonCallback(w, b, a, m);   break;
+        case 0:
+            polygon_mouseButtonCallback(w, b, a, m);
+            break;
+        case 1:
+            penrose_mouseButtonCallback(w, b, a, m);
+            break;
+        case 2:
+            pbp_mouseButtonCallback(w, b, a, m);
+            break;
+        case 3:
+            cube_mouseButtonCallback(w, b, a, m);
+            break;
+        case 4:
+            arch_mouseButtonCallback(w, b, a, m);
+            break;
+        case 5:
+            archp_mouseButtonCallback(w, b, a, m);
+            break;
+        case 6:
+            penrose_block_mouseButtonCallback(w, b, a, m);
+            break;
+        case 7:
+            reutersvard_mouseButtonCallback(w, b, a, m);
+            break;
     }
 }
 static void cursor_for(int slot, GLFWwindow* w, double x, double y)
 {
     switch (slot)
     {
-        case 0: polygon_cursorPosCallback(w, x, y); break;
-        case 1: penrose_cursorPosCallback(w, x, y); break;
-        case 2: pbp_cursorPosCallback(w, x, y);     break;
-        case 3: cube_cursorPosCallback(w, x, y);    break;
-        case 4: arch_cursorPosCallback(w, x, y);    break;
-        case 5: archp_cursorPosCallback(w, x, y);   break;
-        case 6: penrose_block_cursorPosCallback(w, x, y); break;
-        case 7: reutersvard_cursorPosCallback(w, x, y);   break;
+        case 0:
+            polygon_cursorPosCallback(w, x, y);
+            break;
+        case 1:
+            penrose_cursorPosCallback(w, x, y);
+            break;
+        case 2:
+            pbp_cursorPosCallback(w, x, y);
+            break;
+        case 3:
+            cube_cursorPosCallback(w, x, y);
+            break;
+        case 4:
+            arch_cursorPosCallback(w, x, y);
+            break;
+        case 5:
+            archp_cursorPosCallback(w, x, y);
+            break;
+        case 6:
+            penrose_block_cursorPosCallback(w, x, y);
+            break;
+        case 7:
+            reutersvard_cursorPosCallback(w, x, y);
+            break;
     }
 }
 static void scroll_for(int slot, GLFWwindow* w, double x, double y)
 {
     switch (slot)
     {
-        case 1: penrose_scrollCallback(w, x, y);     break;
-        case 2: pbp_scrollCallback(w, x, y);         break;
-        case 3: cube_scrollCallback(w, x, y);        break;
-        case 4: arch_scrollCallback(w, x, y);        break;
-        case 5: archp_scrollCallback(w, x, y);       break;
-        case 6: penrose_block_scrollCallback(w, x, y); break;
-        case 7: reutersvard_scrollCallback(w, x, y);   break;
-        default: break;
+        case 1:
+            penrose_scrollCallback(w, x, y);
+            break;
+        case 2:
+            pbp_scrollCallback(w, x, y);
+            break;
+        case 3:
+            cube_scrollCallback(w, x, y);
+            break;
+        case 4:
+            arch_scrollCallback(w, x, y);
+            break;
+        case 5:
+            archp_scrollCallback(w, x, y);
+            break;
+        case 6:
+            penrose_block_scrollCallback(w, x, y);
+            break;
+        case 7:
+            reutersvard_scrollCallback(w, x, y);
+            break;
+        default:
+            break;
     }
 }
 static void display_for(int slot)
 {
     switch (slot)
     {
-        case 0: polygon_display(); break;
-        case 1: penrose_display(); break;
-        case 2: pbp_display();     break;
-        case 3: cube_display();    break;
-        case 4: arch_display();    break;
-        case 5: archp_display();   break;
-        case 6: penrose_block_display(); break;
-        case 7: reutersvard_display();   break;
+        case 0:
+            polygon_display();
+            break;
+        case 1:
+            penrose_display();
+            break;
+        case 2:
+            pbp_display();
+            break;
+        case 3:
+            cube_display();
+            break;
+        case 4:
+            arch_display();
+            break;
+        case 5:
+            archp_display();
+            break;
+        case 6:
+            penrose_block_display();
+            break;
+        case 7:
+            reutersvard_display();
+            break;
     }
 }
 
@@ -168,8 +247,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 
     // In-shape: ENTER advances to the NEXT puzzle (wraps at the end).
-    if (app_state == AppState::IN_SHAPE && action == GLFW_PRESS &&
-        (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER))
+    if (app_state == AppState::IN_SHAPE && action == GLFW_PRESS && (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER))
     {
         current_object = (current_object + 1) % NUM_OBJECTS;
         std::cout << object_names[current_object] << std::endl;
@@ -180,18 +258,26 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (app_state == AppState::LEVEL_SELECT && action == GLFW_PRESS)
     {
         int target = -1;
-        if      (key == GLFW_KEY_1) target = 0;
-        else if (key == GLFW_KEY_2) target = 1;
-        else if (key == GLFW_KEY_3) target = 2;
-        else if (key == GLFW_KEY_4) target = 3;
-        else if (key == GLFW_KEY_5) target = 4;
-        else if (key == GLFW_KEY_6) target = 5;
-        else if (key == GLFW_KEY_7) target = 6;
-        else if (key == GLFW_KEY_8) target = 7;
+        if (key == GLFW_KEY_1)
+            target = 0;
+        else if (key == GLFW_KEY_2)
+            target = 1;
+        else if (key == GLFW_KEY_3)
+            target = 2;
+        else if (key == GLFW_KEY_4)
+            target = 3;
+        else if (key == GLFW_KEY_5)
+            target = 4;
+        else if (key == GLFW_KEY_6)
+            target = 5;
+        else if (key == GLFW_KEY_7)
+            target = 6;
+        else if (key == GLFW_KEY_8)
+            target = 7;
         if (target != -1)
         {
             current_object = target;
-            app_state      = AppState::IN_SHAPE;
+            app_state = AppState::IN_SHAPE;
             std::cout << object_names[current_object] << std::endl;
             return;
         }
@@ -202,15 +288,24 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (action == GLFW_PRESS)
     {
         int target = -1;
-        if      (key == GLFW_KEY_TAB) target = (current_object + 1) % NUM_OBJECTS;
-        else if (key == GLFW_KEY_1)   target = 0;
-        else if (key == GLFW_KEY_2)   target = 1;
-        else if (key == GLFW_KEY_3)   target = 2;
-        else if (key == GLFW_KEY_4)   target = 3;
-        else if (key == GLFW_KEY_5)   target = 4;
-        else if (key == GLFW_KEY_6)   target = 5;
-        else if (key == GLFW_KEY_7)   target = 6;
-        else if (key == GLFW_KEY_8)   target = 7;
+        if (key == GLFW_KEY_TAB)
+            target = (current_object + 1) % NUM_OBJECTS;
+        else if (key == GLFW_KEY_1)
+            target = 0;
+        else if (key == GLFW_KEY_2)
+            target = 1;
+        else if (key == GLFW_KEY_3)
+            target = 2;
+        else if (key == GLFW_KEY_4)
+            target = 3;
+        else if (key == GLFW_KEY_5)
+            target = 4;
+        else if (key == GLFW_KEY_6)
+            target = 5;
+        else if (key == GLFW_KEY_7)
+            target = 6;
+        else if (key == GLFW_KEY_8)
+            target = 7;
 
         if (target != -1)
         {
@@ -262,7 +357,11 @@ int main()
     // keeps the width close to the previous 1280 and brings the height up to
     // match the image so the background can fill the window without distortion.
     GLFWwindow* window = glfwCreateWindow(1280, 1199, "Impossible Objects", NULL, NULL);
-    if (!window) { glfwTerminate(); exit(EXIT_FAILURE); }
+    if (!window)
+    {
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
 
     glfwGetFramebufferSize(window, &screen_w, &screen_h);
     glfwMakeContextCurrent(window);
@@ -288,19 +387,18 @@ int main()
 
     ui_init(window);
 
-    glClearColor(0.80f, 0.74f, 0.64f, 1.0f);   // warm cream-beige (matches the Escher landing's stone tone)
+    glClearColor(0.80f, 0.74f, 0.64f, 1.0f);  // warm cream-beige (matches the Escher landing's stone tone)
     glEnable(GL_DEPTH_TEST);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     std::cout << "Press TAB to cycle objects, or 1-8 to jump directly" << std::endl;
-    for (int i = 0; i < NUM_OBJECTS; i++)
-        std::cout << "  " << (i + 1) << ". " << object_names[i] << std::endl;
+    for (int i = 0; i < NUM_OBJECTS; i++) std::cout << "  " << (i + 1) << ". " << object_names[i] << std::endl;
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
 
-        glClearColor(0.80f, 0.74f, 0.64f, 1.0f);   // warm cream-beige (matches the Escher landing's stone tone)
+        glClearColor(0.80f, 0.74f, 0.64f, 1.0f);  // warm cream-beige (matches the Escher landing's stone tone)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ui_begin_frame();
