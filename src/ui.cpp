@@ -176,8 +176,8 @@ static void draw_title(AppState& state, GLFWwindow* window)
     // upper-left of the Escher render so the text sits in the lit area).
     const ImVec4 cream   = ImVec4(0.96f, 0.92f, 0.83f, 1.0f);
     const ImVec4 dimcream= ImVec4(0.86f, 0.80f, 0.70f, 0.95f);
-    const ImVec4 magenta = ImVec4(0.86f, 0.34f, 0.58f, 0.92f);
-    const ImVec4 cyan    = ImVec4(0.36f, 0.78f, 0.82f, 0.92f);
+    const ImVec4 magenta = ImVec4(0.92f, 0.40f, 0.62f, 0.95f);
+    const ImVec4 cyan    = ImVec4(0.42f, 0.82f, 0.86f, 0.95f);
 
     ImGui::SetCursorPos(ImVec2(72, 72));
     ImGui::PushStyleColor(ImGuiCol_Text, cream);
@@ -193,49 +193,64 @@ static void draw_title(AppState& state, GLFWwindow* window)
     ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
 
-    // ── Button cluster, bottom-right corner with a translucent dark panel.
-    const ImVec2 btn(260, 50);
-    const float pad   = 18.0f;
-    const float gap   = 12.0f;
-    const float panW  = btn.x + 2 * pad;
-    const float panH  = 3 * btn.y + 2 * gap + 2 * pad;
-    const float margin= 56.0f;
+    // ── Key hint, bottom-right. No buttons — input is driven from the
+    // keyboard (ENTER → start, M → menu, ESC → quit) which the main key
+    // callback handles. The hint sits in a translucent dark panel with the
+    // same brass-tone rim as before so the bottom-right still has a focal
+    // anchor and the user knows what to press.
+    const float pad    = 22.0f;
+    const float panW   = 360.0f;
+    const float panH   = 168.0f;
+    const float margin = 56.0f;
     const ImVec2 panTL(sz.x - panW - margin, sz.y - panH - margin);
     const ImVec2 panBR(panTL.x + panW, panTL.y + panH);
 
-    // Translucent dark panel
     ImGui::GetWindowDrawList()->AddRectFilled(
         panTL, panBR, IM_COL32(10, 12, 18, 195), 14.0f);
-    // Subtle warm rim — picks up the brass-railing tone of the render
     ImGui::GetWindowDrawList()->AddRect(
         panTL, panBR, IM_COL32(180, 145, 90, 110), 14.0f, 0, 1.5f);
 
-    // Begin Journey — magenta accent (echoes the pink window glow at right)
+    // "ENTER" — magenta (echoes the pink window glow on the right)
     ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad));
-    ImGui::PushStyleColor(ImGuiCol_Button,         magenta);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(0.95f, 0.46f, 0.70f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(0.72f, 0.26f, 0.46f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_Text,           cream);
-    if (ImGui::Button("Begin Journey", btn)) state = AppState::IN_SHAPE;
-    ImGui::PopStyleColor(4);
+    ImGui::PushStyleColor(ImGuiCol_Text, magenta);
+    ImGui::SetWindowFontScale(1.4f);
+    ImGui::TextUnformatted("ENTER");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+    ImGui::SameLine(panTL.x + pad + 110 - ImGui::GetWindowPos().x);
+    ImGui::PushStyleColor(ImGuiCol_Text, cream);
+    ImGui::SetWindowFontScale(1.15f);
+    ImGui::TextUnformatted("begin journey");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
 
-    // Shrine Select — cyan/teal accent (echoes the upper-left light pool)
-    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + btn.y + gap));
-    ImGui::PushStyleColor(ImGuiCol_Button,         cyan);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(0.50f, 0.88f, 0.90f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(0.24f, 0.62f, 0.66f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_Text,           ImVec4(0.07f, 0.10f, 0.12f, 1.0f));
-    if (ImGui::Button("Shrine Select", btn)) state = AppState::SHRINE_SELECT;
-    ImGui::PopStyleColor(4);
+    // "M" — cyan (echoes the upper-left teal light pool)
+    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + 46));
+    ImGui::PushStyleColor(ImGuiCol_Text, cyan);
+    ImGui::SetWindowFontScale(1.4f);
+    ImGui::TextUnformatted("M");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+    ImGui::SameLine(panTL.x + pad + 110 - ImGui::GetWindowPos().x);
+    ImGui::PushStyleColor(ImGuiCol_Text, cream);
+    ImGui::SetWindowFontScale(1.15f);
+    ImGui::TextUnformatted("shrine select");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
 
-    // Quit — quiet neutral
-    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + 2 * (btn.y + gap)));
-    ImGui::PushStyleColor(ImGuiCol_Button,         ImVec4(0.18f, 0.18f, 0.22f, 0.82f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered,  ImVec4(0.30f, 0.30f, 0.36f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,   ImVec4(0.12f, 0.12f, 0.16f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_Text,           dimcream);
-    if (ImGui::Button("Quit", btn)) glfwSetWindowShouldClose(window, GL_TRUE);
-    ImGui::PopStyleColor(4);
+    // "ESC" — neutral dim, less prominent
+    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + 92));
+    ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
+    ImGui::SetWindowFontScale(1.4f);
+    ImGui::TextUnformatted("ESC");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
+    ImGui::SameLine(panTL.x + pad + 110 - ImGui::GetWindowPos().x);
+    ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
+    ImGui::SetWindowFontScale(1.15f);
+    ImGui::TextUnformatted("quit");
+    ImGui::SetWindowFontScale(1.0f);
+    ImGui::PopStyleColor();
 
     ImGui::End();
 }

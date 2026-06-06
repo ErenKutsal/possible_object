@@ -153,6 +153,23 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         return;
     }
 
+    // Title-screen keyboard navigation (replaces the on-screen buttons):
+    //   ENTER → begin journey (jump straight into the active shape)
+    //   M     → open the shrine-select menu
+    if (app_state == AppState::TITLE && action == GLFW_PRESS)
+    {
+        if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)
+        {
+            app_state = AppState::IN_SHAPE;
+            return;
+        }
+        if (key == GLFW_KEY_M)
+        {
+            app_state = AppState::SHRINE_SELECT;
+            return;
+        }
+    }
+
     if (app_state != AppState::IN_SHAPE) return;
 
     if (action == GLFW_PRESS)
