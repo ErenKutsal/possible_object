@@ -50,6 +50,44 @@ static GLint  sky_viewLoc = -1, sky_projLoc = -1, sky_rotLoc = -1, sky_envMapLoc
 static float  sky_rotation = 0.0f;
 static double last_time    = 0.0;
 
+// ── Forge-glow halo (background pre-pass) ───────────────────────────────────
+// Same treatment as the lava arch: a warm radial bloom over the cream-beige
+// background, ramping in with the temper sweep so the forge heat that tempers
+// the metal also visibly warms the surrounding air. Reuses the shared halo
+// shaders; timing matched to the chrome shader's TEMPER_DELAY / TEMPER_SWEEP.
+static GLuint halo_program    = 0;
+static GLuint halo_vao        = 0;
+static GLuint halo_vbo        = 0;
+static GLint  halo_baseLoc    = -1;
+static GLint  halo_colorLoc   = -1;
+static GLint  halo_centerLoc  = -1;
+static GLint  halo_amountLoc  = -1;
+static GLint  halo_falloffLoc = -1;
+
+static void halo_init()
+{
+    halo_program = InitShader("../shaders/vshader_halo.glsl",
+                              "../shaders/fshader_halo.glsl");
+    halo_baseLoc    = glGetUniformLocation(halo_program, "uBaseColor");
+    halo_colorLoc   = glGetUniformLocation(halo_program, "uHaloColor");
+    halo_centerLoc  = glGetUniformLocation(halo_program, "uHaloCenter");
+    halo_amountLoc  = glGetUniformLocation(halo_program, "uHaloAmount");
+    halo_falloffLoc = glGetUniformLocation(halo_program, "uHaloFalloff");
+
+    static const float quad[] = {
+        -1.0f, -1.0f,  1.0f, -1.0f,  -1.0f, 1.0f,  1.0f, 1.0f,
+    };
+    glGenVertexArrays(1, &halo_vao);
+    glBindVertexArray(halo_vao);
+    glGenBuffers(1, &halo_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, halo_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+    GLint aPos = glGetAttribLocation(halo_program, "aPos");
+    glEnableVertexAttribArray(aPos);
+    glVertexAttribPointer(aPos, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
+    glBindVertexArray(0);
+}
+
 // ── Static point light + visible marker sphere ─────────────────────────────
 static GLuint mark_vao = 0, mark_vbo = 0;
 static GLuint mark_program = 0;
@@ -271,6 +309,8 @@ void archp_init()
     // The chrome shader's light position is driven by the orbit — turn on
     // ObjShape's custom-light override.
     g_shape.useCustomLight = true;
+
+    halo_init();
 }
 
 void archp_display()
@@ -283,10 +323,30 @@ void archp_display()
     g_shape.setCustomLight(lightPos);
     g_shape.setSkyboxRotation(0.0f);   // static backdrop too
 
-    // Cubemap stays bound to texture unit 0 — the chrome shader still uses
-    // it for reflection sampling. We don't draw a skybox or override the
-    // clear colour, so the background is the same pale slate as every
-    // other slot (set by main.cpp's render-loop clear).
+    // ── Forge-glow halo: warm radial bloom over the cream-beige background,
+    // ramping with the temper sweep so the heat that tempers the metal also
+    // warms the air around it. Same recipe and timing rhythm as the lava arch.
+    // TEMPER_DELAY / TEMPER_SWEEP mirror fshader_iridescent.glsl.
+    constexpr float TEMPER_DELAY = 0.5f;
+    constexpr float TEMPER_SWEEP = 5.5f;
+    float heatT  = g_shape.postSolveTime - TEMPER_DELAY;
+    if (heatT < 0.0f) heatT = 0.0f;
+    float amount = heatT / TEMPER_SWEEP;
+    if (amount > 1.0f) amount = 1.0f;
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUseProgram(halo_program);
+    glUniform3f(halo_baseLoc,    0.80f, 0.74f, 0.64f);   // warm cream-beige base
+    glUniform3f(halo_colorLoc,   1.00f, 0.55f, 0.22f);   // forge-heat amber spill
+    glUniform2f(halo_centerLoc,  0.10f, 0.06f);          // figure centre in NDC
+    glUniform1f(halo_amountLoc,  amount * 0.65f);        // cap so it never overpowers the figure
+    glUniform1f(halo_falloffLoc, 2.0f);                  // wide soft spill
+    glBindVertexArray(halo_vao);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+
+    // Cubemap stays bound to texture unit 0 — the chrome shader uses it for
+    // reflection sampling.
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, env_cubemap);
 
