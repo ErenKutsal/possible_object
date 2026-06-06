@@ -20,6 +20,8 @@
 
 in vec3 fragPos;
 in vec4 fragColor;
+in float vScreenX;
+in float vScreenY;
 
 uniform vec3  uLightPos;
 uniform vec3  uEyePos;
@@ -29,6 +31,7 @@ uniform float uLockGlow;
 
 uniform float uHueShift;
 uniform float uIridescenceAmount;
+uniform float uPostSolveTime;         // seconds since LOCKED (0 while unsolved) — drives the temper
 uniform float uSkyboxRotation;       // Y-axis rotation of the env cubemap
 
 uniform samplerCube uEnvMap;          // baked procedural sky cubemap
@@ -38,6 +41,31 @@ uniform float       uMaxEnvMip;       // last mip level of uEnvMap
 out vec4 outColor;
 
 const float PI = 3.14159265359;
+
+// ─── Thin-film interference → STEEL TEMPER COLOURS ─────────────────────
+// Heated steel grows a transparent oxide layer whose thickness increases
+// with temperature. Light reflecting off the top of that film interferes
+// with light reflecting off the steel underneath; the path difference is
+// wavelength-dependent, so the surface shows colours — the familiar temper
+// sequence straw → bronze → violet → peacock blue as the film thickens.
+//
+// This is REAL thin-film interference (replacing the old HSV-Fresnel fake):
+// optical path difference OPD = 2·n·d·cosθ_film, phase φ(λ)=2π·OPD/λ, and
+// reflectance per wavelength ∝ ½(1−cos φ). Evaluated at the R/G/B sRGB
+// primaries (~610/550/465 nm) for a cheap but physically-shaped RGB tint.
+// (Belcour & Barla 2017 give the rigorous spectral model; this is the
+// 3-sample reduction.)
+vec3 temperTint(float thicknessNm, float cosTheta)
+{
+    const float nFilm = 2.3;                       // iron-oxide film index
+    // Snell: cosθ inside the film (air n≈1).
+    float sinI2 = 1.0 - cosTheta * cosTheta;
+    float cosF  = sqrt(max(1.0 - sinI2 / (nFilm * nFilm), 0.0));
+    float opd   = 2.0 * nFilm * thicknessNm * cosF;        // nanometres
+    vec3  lambda = vec3(610.0, 550.0, 465.0);             // R, G, B
+    vec3  phase  = (2.0 * PI / lambda) * opd;
+    return 0.5 - 0.5 * cos(phase);                         // per-channel reflectance
+}
 
 // ─── HSV → RGB (for the iridescent tint at grazing angles) ─────────────
 vec3 hsv2rgb(vec3 c)
@@ -176,6 +204,46 @@ void main()
     float roughness = uRoughness;
     float metallic  = 1.0;
 
+    // ── HEAT-TEMPER STATE ─────────────────────────────────────────────
+    // Mirrors the lava arch's three beats:
+    //   • UNSOLVED  → cold, dark, matte blued steel (dormant).
+    //   • ON SOLVE  → a heat front clock-traces the loop ONCE, leaving the
+    //                 oxide temper colour behind it (straw→bronze→violet→blue).
+    //   • SETTLED   → tempered mirror chrome whose colours slowly breathe.
+    // Screen-space angle = position around the loop (seam-safe, same trick the
+    // lava arch uses); driven by uPostSolveTime so it's 0 until LOCKED.
+    vec2  dC    = vec2(vScreenX - 0.5, vScreenY - 0.5);
+    float angle = atan(dC.y, dC.x) / (2.0 * PI) + 0.5;
+    angle += 0.03 * sin(vScreenX * 24.0 + vScreenY * 17.0);   // ragged front
+
+    const float TEMPER_DELAY = 0.5;        // dormant beat before the heat arrives
+    const float TEMPER_SWEEP = 5.5;        // seconds for the heat to sweep the loop
+    float heatT      = max(uPostSolveTime - TEMPER_DELAY, 0.0);
+    float heatActive = step(0.001, heatT);
+    float front      = heatT / TEMPER_SWEEP * 1.10;           // 0→1 around the loop
+    float frontW     = 0.13;
+    // tempered = how heated this point is: 1 behind the front, 0 ahead of it.
+    float tempered   = heatActive * (1.0 - smoothstep(front - frontW, front + frontW, angle));
+
+    // Settled FLOW — once the sweep completes, the temper colours actively
+    // RACE around the loop: a travelling thickness band (two crests circling
+    // CW) plus a finer counter-rotating ripple swing the oxide layer through
+    // a wide range, so the full straw→violet→blue palette streams around the
+    // impossible loop like live heat currents. Much faster than the old gentle
+    // breathe. Only active once the reveal sweep has fully passed (settled).
+    float settled  = smoothstep(1.0, 1.25, front);
+    float revealNm = tempered * 470.0;                         // the reveal target
+    float flowNm   = settled * (
+          150.0 * sin(angle * 6.2831 * 2.0 - uTime * 1.4)     // 2 crests racing CW
+        +  80.0 * sin(angle * 6.2831 * 3.0 + uTime * 0.9));    // finer counter-ripple
+    float oxideNm  = clamp(revealNm + flowNm, 0.0, 560.0);
+
+    // Dormant cold steel → bright palette chrome as the heat passes. Roughness
+    // drops matte→mirror so the reflections "focus in" behind the front.
+    roughness = mix(0.46, 0.085, tempered);
+    vec3 coldSteel = vec3(0.10, 0.11, 0.135);                 // dark blued-steel
+    albedo = mix(coldSteel, albedo, tempered);
+
     // Dielectric F0 = 0.04 (water/plastic). Metals override with albedo.
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
@@ -246,16 +314,22 @@ void main()
 
     vec3 color = ambient + Lo;
 
-    // ── 3. Iridescent oil-film tint (post-solve only) ────────────────
-    // ADDS coloured light to the dark metal instead of multiplying through
-    // it — multiplicative blending kills the iridescent peaks against a
-    // dark base, so we explicitly add a Fresnel-modulated rainbow on top.
-    if (uIridescenceAmount > 0.001) {
-        float fresnel = pow(1.0 - NdotV, 2.0);
-        float hue  = fract(fresnel * 1.5 + uHueShift);
-        vec3  irid = hsv2rgb(vec3(hue, 0.85, 1.0));
-        color += irid * fresnel * 0.75 * uIridescenceAmount;
+    // ── 3. TEMPER COLOUR — real thin-film interference of the oxide layer.
+    // The reflection is TINTED toward the interference colour (the oxide is
+    // semi-transparent, so the steel reflection passes through it coloured),
+    // with a small additive sheen so the colour reads on darker zones too.
+    if (tempered > 0.001) {
+        vec3 temperCol = temperTint(oxideNm, NdotV);
+        color *= mix(vec3(1.0), temperCol * 1.7, tempered * 0.75);
+        color += temperCol * tempered * 0.12;
     }
+
+    // ── 3b. Incandescent heat front — the sweeping front itself glows hot
+    // orange-white as it passes (the metal is briefly at heat), then fades
+    // once the loop is fully swept. Screen-angle + time → seam-safe.
+    float lead       = exp(-pow((angle - front) / (frontW * 1.2), 2.0));
+    float leadActive = (1.0 - smoothstep(0.85, 1.10, front)) * heatActive;
+    color += vec3(1.0, 0.52, 0.18) * lead * leadActive * 1.4;
 
     // ── 4. Edge stylization (silhouette + crease) — same as before ───
     float facing     = abs(dot(N, V));
