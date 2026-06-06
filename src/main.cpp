@@ -1,143 +1,255 @@
-// DEPRECATED FILE. NOTHING INTERESTING HERE. PROCEED TO MAIN2.CPP.
-// NO I WILL NOT DELETE THIS.
+#include "impossible_polygon.h"
+#include "includes.h"
+#include "neckercube.h"
+#include "penrose.h"
+#include "ui.h"
 
-#include "InitShader.h"
-#include "my_math.h"
+int screen_w, screen_h;  // Screen Attributes
 
-const int num_vertices = 7;
-vec3 vertices[num_vertices];
+// ─── Forward decls — modules without their own headers ──────────────────────
 
-GLuint segment_vao, segment_vbo;
-GLuint program;
-GLint mvp_loc;
+// OBJ-loaded modules
+void arch_init();
+void arch_display();
+void arch_mouseButtonCallback(GLFWwindow*, int, int, int);
+void arch_cursorPosCallback(GLFWwindow*, double, double);
+void arch_scrollCallback(GLFWwindow*, double, double);
+void arch_keyCallback(GLFWwindow*, int, int, int, int);
 
-float camera_radius = 0.5f;
-float camera_theta = M_PI / 2.0f;
-float camera_phi = M_PI / 2.0f;
+void penrose_block_init();
+void penrose_block_display();
+void penrose_block_mouseButtonCallback(GLFWwindow*, int, int, int);
+void penrose_block_cursorPosCallback(GLFWwindow*, double, double);
+void penrose_block_scrollCallback(GLFWwindow*, double, double);
+void penrose_block_keyCallback(GLFWwindow*, int, int, int, int);
 
-bool is_dragging = false;
-double last_mouse_x = 0.0;
-double last_mouse_y = 0.0;
+void reutersvard_init();
+void reutersvard_display();
+void reutersvard_mouseButtonCallback(GLFWwindow*, int, int, int);
+void reutersvard_cursorPosCallback(GLFWwindow*, double, double);
+void reutersvard_scrollCallback(GLFWwindow*, double, double);
+void reutersvard_keyCallback(GLFWwindow*, int, int, int, int);
 
-void create_hexagon()
+// Procedural modules
+//   pbp_*   — Blocked Penrose (Paradox block variant)    (penrose_blocks_proc.cpp)
+//   archp_* — Impossible Arch wide-squat variant         (arch_proc.cpp)
+void pbp_init();
+void pbp_display();
+void pbp_mouseButtonCallback(GLFWwindow*, int, int, int);
+void pbp_cursorPosCallback(GLFWwindow*, double, double);
+void pbp_scrollCallback(GLFWwindow*, double, double);
+void pbp_keyCallback(GLFWwindow*, int, int, int, int);
+
+void archp_init();
+void archp_display();
+void archp_mouseButtonCallback(GLFWwindow*, int, int, int);
+void archp_cursorPosCallback(GLFWwindow*, double, double);
+void archp_scrollCallback(GLFWwindow*, double, double);
+void archp_keyCallback(GLFWwindow*, int, int, int, int);
+
+// ─── Shape registry ─────────────────────────────────────────────────────────
+const int NUM_OBJECTS = 8;
+const char* object_names[NUM_OBJECTS] = {
+    "Impossible Polygon",         // 0 — procedural (parametric n-gon)
+    "Penrose Triangle",           // 1 — OBJ
+    "Blocked Penrose (Blender)",  // 2 — OBJ (Paradox block variant)
+    "Impossible Cube",            // 3 — OBJ
+    "Impossible Arch",            // 4 — OBJ (tall narrow variant)
+    "Impossible Arch (round)",    // 5 — Paradox arch sphere-cast to bend bars
+    "Penrose Stair",              // 6 — OBJ
+    "Reutersvard Rectangle",      // 7 — OBJ
+};
+
+int current_object = 0;
+AppState app_state = AppState::TITLE;
+
+// ─── Per-slot callback dispatch ────────────────────────────────────────────
+static void key_for(int slot, GLFWwindow* w, int k, int s, int a, int m)
 {
-    float pi_over_3 = M_PI / 3;
-    float radius = 0.5f;
-    float height_step = 0.1f;
-
-    for (int i = 0; i < num_vertices; i++)
+    switch (slot)
     {
-        vertices[i] = vec3(radius * cosf(i * pi_over_3), radius * sinf(i * pi_over_3),
-                           i * height_step - 0.25f);  // To make its center at z = 0
+        case 0: polygon_key_callback(w, k, s, a, m);    break;
+        case 1: penrose_keyCallback(w, k, s, a, m);     break;
+        case 2: pbp_keyCallback(w, k, s, a, m);         break;
+        case 3: cube_keyCallback(w, k, s, a, m);        break;
+        case 4: arch_keyCallback(w, k, s, a, m);        break;
+        case 5: archp_keyCallback(w, k, s, a, m);       break;
+        case 6: penrose_block_keyCallback(w, k, s, a, m); break;
+        case 7: reutersvard_keyCallback(w, k, s, a, m);   break;
+    }
+}
+static void mouse_for(int slot, GLFWwindow* w, int b, int a, int m)
+{
+    switch (slot)
+    {
+        case 0: polygon_mouseButtonCallback(w, b, a, m); break;
+        case 1: penrose_mouseButtonCallback(w, b, a, m); break;
+        case 2: pbp_mouseButtonCallback(w, b, a, m);     break;
+        case 3: cube_mouseButtonCallback(w, b, a, m);    break;
+        case 4: arch_mouseButtonCallback(w, b, a, m);    break;
+        case 5: archp_mouseButtonCallback(w, b, a, m);   break;
+        case 6: penrose_block_mouseButtonCallback(w, b, a, m); break;
+        case 7: reutersvard_mouseButtonCallback(w, b, a, m);   break;
+    }
+}
+static void cursor_for(int slot, GLFWwindow* w, double x, double y)
+{
+    switch (slot)
+    {
+        case 0: polygon_cursorPosCallback(w, x, y); break;
+        case 1: penrose_cursorPosCallback(w, x, y); break;
+        case 2: pbp_cursorPosCallback(w, x, y);     break;
+        case 3: cube_cursorPosCallback(w, x, y);    break;
+        case 4: arch_cursorPosCallback(w, x, y);    break;
+        case 5: archp_cursorPosCallback(w, x, y);   break;
+        case 6: penrose_block_cursorPosCallback(w, x, y); break;
+        case 7: reutersvard_cursorPosCallback(w, x, y);   break;
+    }
+}
+static void scroll_for(int slot, GLFWwindow* w, double x, double y)
+{
+    switch (slot)
+    {
+        case 1: penrose_scrollCallback(w, x, y);     break;
+        case 2: pbp_scrollCallback(w, x, y);         break;
+        case 3: cube_scrollCallback(w, x, y);        break;
+        case 4: arch_scrollCallback(w, x, y);        break;
+        case 5: archp_scrollCallback(w, x, y);       break;
+        case 6: penrose_block_scrollCallback(w, x, y); break;
+        case 7: reutersvard_scrollCallback(w, x, y);   break;
+        default: break;
+    }
+}
+static void display_for(int slot)
+{
+    switch (slot)
+    {
+        case 0: polygon_display(); break;
+        case 1: penrose_display(); break;
+        case 2: pbp_display();     break;
+        case 3: cube_display();    break;
+        case 4: arch_display();    break;
+        case 5: archp_display();   break;
+        case 6: penrose_block_display(); break;
+        case 7: reutersvard_display();   break;
     }
 }
 
-void init()
-{
-    create_hexagon();
-
-    glGenVertexArrays(1, &segment_vao);
-    glBindVertexArray(segment_vao);
-
-    glGenBuffers(1, &segment_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, segment_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    program = InitShader("../shaders/vshader.glsl", "../shaders/fshader.glsl");
-    glUseProgram(program);
-
-    GLuint loc = glGetAttribLocation(program, "vPosition");
-    glEnableVertexAttribArray(loc);
-    glVertexAttribPointer(loc, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-
-    mvp_loc = glGetUniformLocation(program, "MVP");
-
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);  // Dark gray background
-}
-
-void display(void)
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    float eye_x = camera_radius * sinf(camera_phi) * cosf(camera_theta);
-    float eye_y = camera_radius * cosf(camera_phi);
-    float eye_z = camera_radius * sinf(camera_phi) * sinf(camera_theta);
-
-    vec3 eye(eye_x, eye_y, eye_z);
-    vec3 at(0.0f, 0.0f, 0.0f);
-    vec3 up(0.0f, 1.0f, 0.0f);
-    mat4 view = LookAt(eye, at, up);
-
-    mat4 proj = Ortho(-1, 1, -1, 1, -1, 1);
-
-    mat4 model;
-
-    mat4 mvp = proj * view * model;
-
-    // Send the matrix to the shader
-    glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp.d[0][0]);
-
-    // Draw the helix as a line strip
-    glBindVertexArray(segment_vao);
-    glDrawArrays(GL_LINE_STRIP, 0, num_vertices);
-
-    // Draw points so you can see the vertices clearly
-    glPointSize(5.0f);
-    glDrawArrays(GL_POINTS, 0, num_vertices);
-
-    glFinish();
-}
-
+// =============================================
+// Unified GLFW callbacks
+// =============================================
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    switch (key)
+    if (ui_wants_keyboard()) return;
+
+    // ESC always returns to the landing — never quits the app. (Quit via the
+    // window close button or Cmd-Q.) From the landing, ESC does nothing.
+    if (action == GLFW_PRESS && key == GLFW_KEY_ESCAPE)
     {
-        case GLFW_KEY_ESCAPE:
-        case GLFW_KEY_Q:
-            break;
+        if (app_state != AppState::TITLE) app_state = AppState::TITLE;
+        return;
     }
+
+    // Title-screen navigation:
+    //   ENTER → begin journey (jump into the current shape)
+    //   M     → open the level-select menu
+    if (app_state == AppState::TITLE && action == GLFW_PRESS)
+    {
+        if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)
+        {
+            app_state = AppState::IN_SHAPE;
+            return;
+        }
+        if (key == GLFW_KEY_M)
+        {
+            app_state = AppState::LEVEL_SELECT;
+            return;
+        }
+    }
+
+    // In-shape: ENTER advances to the NEXT puzzle (wraps at the end).
+    if (app_state == AppState::IN_SHAPE && action == GLFW_PRESS &&
+        (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER))
+    {
+        current_object = (current_object + 1) % NUM_OBJECTS;
+        std::cout << object_names[current_object] << std::endl;
+        return;
+    }
+
+    // Level select: number keys 1..8 pick that slot and enter it.
+    if (app_state == AppState::LEVEL_SELECT && action == GLFW_PRESS)
+    {
+        int target = -1;
+        if      (key == GLFW_KEY_1) target = 0;
+        else if (key == GLFW_KEY_2) target = 1;
+        else if (key == GLFW_KEY_3) target = 2;
+        else if (key == GLFW_KEY_4) target = 3;
+        else if (key == GLFW_KEY_5) target = 4;
+        else if (key == GLFW_KEY_6) target = 5;
+        else if (key == GLFW_KEY_7) target = 6;
+        else if (key == GLFW_KEY_8) target = 7;
+        if (target != -1)
+        {
+            current_object = target;
+            app_state      = AppState::IN_SHAPE;
+            std::cout << object_names[current_object] << std::endl;
+            return;
+        }
+    }
+
+    if (app_state != AppState::IN_SHAPE) return;
+
+    if (action == GLFW_PRESS)
+    {
+        int target = -1;
+        if      (key == GLFW_KEY_TAB) target = (current_object + 1) % NUM_OBJECTS;
+        else if (key == GLFW_KEY_1)   target = 0;
+        else if (key == GLFW_KEY_2)   target = 1;
+        else if (key == GLFW_KEY_3)   target = 2;
+        else if (key == GLFW_KEY_4)   target = 3;
+        else if (key == GLFW_KEY_5)   target = 4;
+        else if (key == GLFW_KEY_6)   target = 5;
+        else if (key == GLFW_KEY_7)   target = 6;
+        else if (key == GLFW_KEY_8)   target = 7;
+
+        if (target != -1)
+        {
+            current_object = target;
+            std::cout << object_names[current_object] << std::endl;
+            return;
+        }
+    }
+
+    key_for(current_object, window, key, scancode, action, mods);
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    if (button == GLFW_MOUSE_BUTTON_LEFT)
-    {
-        if (action == GLFW_PRESS)
-        {
-            is_dragging = true;
-            glfwGetCursorPos(window, &last_mouse_x, &last_mouse_y);
-        }
-        else if (action == GLFW_RELEASE)
-        {
-            is_dragging = false;
-        }
-    }
+    if (ui_wants_mouse()) return;
+    if (app_state != AppState::IN_SHAPE) return;
+    mouse_for(current_object, window, button, action, mods);
 }
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
 {
-    if (is_dragging)
-    {
-        double deltaX = xpos - last_mouse_x;
-        double deltaY = ypos - last_mouse_y;
-
-        last_mouse_x = xpos;
-        last_mouse_y = ypos;
-
-        camera_theta -= deltaX * 0.01f;
-        camera_phi += deltaY * 0.01f;
-
-        // Clamp the up/down angle so the camera doesn't flip upside down
-        if (camera_phi < 0.01f) camera_phi = 0.01f;
-        if (camera_phi > M_PI - 0.01f) camera_phi = M_PI - 0.01f;
-    }
+    if (ui_wants_mouse()) return;
+    if (app_state != AppState::IN_SHAPE) return;
+    cursor_for(current_object, window, xpos, ypos);
 }
 
-void update(void) {}
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    if (ui_wants_mouse()) return;
+    if (app_state != AppState::IN_SHAPE) return;
+    scroll_for(current_object, window, xoffset, yoffset);
+}
 
+// =============================================
+// Main
+// =============================================
 int main()
 {
-    if (!glfwInit()) return 1;
+    if (!glfwInit()) exit(EXIT_FAILURE);
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
@@ -145,37 +257,65 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(512, 512, "possible", NULL, NULL);
-    glfwMakeContextCurrent(window);
+    // Frame matches the aspect ratio of the landing UI background image
+    // renders/31d_colorwindows_4k.png (3840 × 3598, aspect ≈ 1.0673). 1280×1199
+    // keeps the width close to the previous 1280 and brings the height up to
+    // match the image so the background can fill the window without distortion.
+    GLFWwindow* window = glfwCreateWindow(1280, 1199, "Impossible Objects", NULL, NULL);
+    if (!window) { glfwTerminate(); exit(EXIT_FAILURE); }
 
-    if (!window)
-    {
-        glfwTerminate();
-        return 1;
-    }
+    glfwGetFramebufferSize(window, &screen_w, &screen_h);
+    glfwMakeContextCurrent(window);
 
     glfwSetKeyCallback(window, key_callback);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetCursorPosCallback(window, cursor_position_callback);
+    glfwSetScrollCallback(window, scroll_callback);
 
-    init();
+#ifndef __APPLE__
+    glewInit();
+#endif
 
-    double frameRate = 30, currentTime, previousTime = 0.0;
+    // Initialize all objects
+    polygon_init();
+    penrose_init();
+    cube_init();
+    penrose_block_init();
+    arch_init();
+    reutersvard_init();
+    pbp_init();
+    archp_init();
+
+    ui_init(window);
+
+    glClearColor(0.80f, 0.74f, 0.64f, 1.0f);   // warm cream-beige (matches the Escher landing's stone tone)
+    glEnable(GL_DEPTH_TEST);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    std::cout << "Press TAB to cycle objects, or 1-8 to jump directly" << std::endl;
+    for (int i = 0; i < NUM_OBJECTS; i++)
+        std::cout << "  " << (i + 1) << ". " << object_names[i] << std::endl;
+
     while (!glfwWindowShouldClose(window))
     {
-        glfwPollEvents();  // Handles queued events
-        currentTime = glfwGetTime();
-        if (currentTime - previousTime >= 1 / frameRate)
-        {
-            previousTime = currentTime;
-            update();
-        }
+        glfwPollEvents();
 
-        display();
+        glClearColor(0.80f, 0.74f, 0.64f, 1.0f);   // warm cream-beige (matches the Escher landing's stone tone)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        ui_begin_frame();
+
+        if (app_state == AppState::IN_SHAPE)
+            display_for(current_object);
+        else
+            ui_draw_menu(app_state, current_object, window);
+
+        ui_end_frame();
         glfwSwapBuffers(window);
     }
 
+    ui_shutdown();
     glfwDestroyWindow(window);
     glfwTerminate();
-    return 1;
+    exit(EXIT_SUCCESS);
 }

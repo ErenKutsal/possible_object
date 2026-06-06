@@ -33,7 +33,7 @@
         },
         {
             "type": "shell",
-            "label": "main2",
+            "label": "main",
             "command": "clang++",
             "args": [
                 "-std=c++11",
