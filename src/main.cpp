@@ -142,19 +142,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 {
     if (ui_wants_keyboard()) return;
 
+    // ESC always returns to the landing — never quits the app. (Quit via the
+    // window close button or Cmd-Q.) From the landing, ESC does nothing.
     if (action == GLFW_PRESS && key == GLFW_KEY_ESCAPE)
     {
-        if (app_state == AppState::IN_SHAPE)
-        {
-            app_state = AppState::SHRINE_SELECT;
-            return;
-        }
-        glfwSetWindowShouldClose(window, GL_TRUE);
+        if (app_state != AppState::TITLE) app_state = AppState::TITLE;
         return;
     }
 
-    // Title-screen keyboard navigation (replaces the on-screen buttons):
-    //   ENTER → begin journey (jump straight into the active shape)
+    // Title-screen navigation:
+    //   ENTER → begin journey (jump into the current shape)
     //   M     → open the shrine-select menu
     if (app_state == AppState::TITLE && action == GLFW_PRESS)
     {
@@ -166,6 +163,36 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         if (key == GLFW_KEY_M)
         {
             app_state = AppState::SHRINE_SELECT;
+            return;
+        }
+    }
+
+    // In-shape: ENTER advances to the NEXT puzzle (wraps at the end).
+    if (app_state == AppState::IN_SHAPE && action == GLFW_PRESS &&
+        (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER))
+    {
+        current_object = (current_object + 1) % NUM_OBJECTS;
+        std::cout << object_names[current_object] << std::endl;
+        return;
+    }
+
+    // Shrine select: number keys 1..8 pick that slot and enter it.
+    if (app_state == AppState::SHRINE_SELECT && action == GLFW_PRESS)
+    {
+        int target = -1;
+        if      (key == GLFW_KEY_1) target = 0;
+        else if (key == GLFW_KEY_2) target = 1;
+        else if (key == GLFW_KEY_3) target = 2;
+        else if (key == GLFW_KEY_4) target = 3;
+        else if (key == GLFW_KEY_5) target = 4;
+        else if (key == GLFW_KEY_6) target = 5;
+        else if (key == GLFW_KEY_7) target = 6;
+        else if (key == GLFW_KEY_8) target = 7;
+        if (target != -1)
+        {
+            current_object = target;
+            app_state      = AppState::IN_SHAPE;
+            std::cout << object_names[current_object] << std::endl;
             return;
         }
     }

@@ -227,93 +227,138 @@ static void draw_title(AppState& state, GLFWwindow* window)
         }
     };
     draw_pair("ENTER", magenta, "begin journey",  false);
-    draw_pair("M",     cyan,    "shrine select",  false);
-    draw_pair("ESC",   dimcream,"quit",           true);
+    draw_pair("M",     cyan,    "shrine select",  true);
 
     ImGui::End();
 }
 
 // ─── Shrine select ───────────────────────────────────────────────────────
-// Re-uses the same Escher backdrop so the menu reads as one continuous
-// "antechamber" rather than two visually unrelated screens.
+// Same Escher backdrop and minimal bottom bar as the landing — the two
+// screens read as one continuous antechamber. Cards in a 4×2 grid with the
+// brass-rim translucent-panel treatment.
 static void draw_shrine_select(AppState& state, int& selected_shape)
 {
     draw_landing_background();
 
     ImGuiIO& io = ImGui::GetIO();
+    ImVec2 sz = io.DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(io.DisplaySize);
-
+    ImGui::SetNextWindowSize(sz);
     ImGui::Begin("##select", nullptr, fullscreen_window_flags());
 
-    ImGui::Dummy(ImVec2(0, 32));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.96f, 0.92f, 0.83f, 1.0f));
-    centered_text("Shrine Select", 2.5f);
+    const ImVec4 cream    = ImVec4(0.96f, 0.92f, 0.83f, 1.0f);
+    const ImVec4 dimcream = ImVec4(0.84f, 0.78f, 0.68f, 0.92f);
+    const ImVec4 magenta  = ImVec4(0.94f, 0.46f, 0.66f, 1.00f);
+    const ImVec4 cyan     = ImVec4(0.50f, 0.86f, 0.90f, 1.00f);
+    const ImU32  panelBg  = IM_COL32(10, 12, 18, 195);
+    const ImU32  panelRim = IM_COL32(180, 145, 90, 110);
+
+    // ── Title, upper-left to mirror the landing layout.
+    ImGui::SetCursorPos(ImVec2(72, 72));
+    ImGui::PushStyleColor(ImGuiCol_Text, cream);
+    ImGui::SetWindowFontScale(3.0f);
+    ImGui::TextUnformatted("Shrine Select");
+    ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
-    ImGui::Dummy(ImVec2(0, 24));
 
-    // Card layout: SHRINE_COUNT cards in a row, fall back to multiple rows if narrow.
-    const float card_w = 150.0f;
-    const float card_h = 200.0f;
-    const float gap = 14.0f;
-    float win_width = ImGui::GetWindowSize().x;
-    int per_row = (int)((win_width + gap) / (card_w + gap));
-    if (per_row < 1) per_row = 1;
-    if (per_row > SHRINE_COUNT) per_row = SHRINE_COUNT;
+    // ── 4 × 2 card grid, centered horizontally, sat below the title.
+    const int   cols   = 4;
+    const int   rows   = 2;
+    const float cardW  = 220.0f;
+    const float cardH  = 200.0f;
+    const float gapX   = 18.0f;
+    const float gapY   = 18.0f;
+    const float gridW  = cols * cardW + (cols - 1) * gapX;
+    const float gridX0 = (sz.x - gridW) * 0.5f;
+    const float gridY0 = 200.0f;
 
-    int rows = (SHRINE_COUNT + per_row - 1) / per_row;
-    for (int r = 0; r < rows; r++)
+    for (int i = 0; i < SHRINE_COUNT; i++)
     {
-        int first = r * per_row;
-        int last = (first + per_row > SHRINE_COUNT) ? SHRINE_COUNT : first + per_row;
-        int count = last - first;
-        float row_width = count * card_w + (count - 1) * gap;
-        ImGui::SetCursorPosX((win_width - row_width) * 0.5f);
+        int   r = i / cols;
+        int   c = i % cols;
+        ImVec2 tl(gridX0 + c * (cardW + gapX), gridY0 + r * (cardH + gapY));
+        ImVec2 br(tl.x + cardW, tl.y + cardH);
 
-        for (int i = first; i < last; i++)
-        {
-            if (i > first) ImGui::SameLine(0.0f, gap);
+        // Translucent dark panel with brass rim — same recipe as the landing.
+        ImGui::GetWindowDrawList()->AddRectFilled(tl, br, panelBg, 14.0f);
+        ImGui::GetWindowDrawList()->AddRect    (tl, br, panelRim, 14.0f, 0, 1.5f);
 
-            ImGui::PushID(i);
-            // Cards: darker translucent base so the underlying render still
-            // shows through, with the shrine's hue as a coloured tint.
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(SHRINE_TINTS[i].x * 0.22f,
-                                                          SHRINE_TINTS[i].y * 0.22f,
-                                                          SHRINE_TINTS[i].z * 0.22f, 0.78f));
-            ImGui::BeginChild("##card", ImVec2(card_w, card_h), true,
-                              ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-
-            ImGui::PushStyleColor(ImGuiCol_Text, SHRINE_TINTS[i]);
-            ImGui::SetWindowFontScale(1.6f);
-            ImGui::TextUnformatted(SHRINE_THEMES[i]);
-            ImGui::SetWindowFontScale(1.0f);
-            ImGui::PopStyleColor();
-
-            ImGui::Spacing();
-            ImGui::TextDisabled("Shape %d", i + 1);
-            ImGui::Spacing();
-            ImGui::TextWrapped("%s", SHRINE_NAMES[i]);
-
-            float remaining = ImGui::GetContentRegionAvail().y - 40;
-            if (remaining > 0) ImGui::Dummy(ImVec2(0, remaining));
-
-            if (ImGui::Button("Enter", ImVec2(-FLT_MIN, 36)))
-            {
-                selected_shape = i;
-                state = AppState::IN_SHAPE;
-            }
-
-            ImGui::EndChild();
-            ImGui::PopStyleColor();
-            ImGui::PopID();
+        // Make the whole card the clickable button.
+        ImGui::SetCursorPos(tl);
+        ImGui::PushID(i);
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.05f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(1.0f, 1.0f, 1.0f, 0.10f));
+        if (ImGui::Button("##card", ImVec2(cardW, cardH))) {
+            selected_shape = i;
+            state          = AppState::IN_SHAPE;
         }
+        ImGui::PopStyleColor(3);
+
+        // Card body: shrine theme (tinted), shape number (cream small), shape
+        // name wrapped. Painted via ImDrawList so they don't intercept the
+        // button click.
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const float pad = 18.0f;
+        // Theme heading — bigger, in the shrine's hue
+        ImGui::PushFont(ImGui::GetFont());
+        dl->AddText(NULL, 22.0f, ImVec2(tl.x + pad, tl.y + pad),
+                    ImGui::ColorConvertFloat4ToU32(SHRINE_TINTS[i]),
+                    SHRINE_THEMES[i]);
+        // Slot label
+        char slot[16];
+        snprintf(slot, sizeof(slot), "Shape %d", i + 1);
+        dl->AddText(NULL, 13.0f, ImVec2(tl.x + pad, tl.y + pad + 36),
+                    ImGui::ColorConvertFloat4ToU32(dimcream), slot);
+        // Shape name (cream)
+        dl->AddText(NULL, 14.0f, ImVec2(tl.x + pad, tl.y + pad + 68),
+                    ImGui::ColorConvertFloat4ToU32(cream), SHRINE_NAMES[i]);
+        // Small key hint at bottom-right of card
+        char keyHint[8];
+        snprintf(keyHint, sizeof(keyHint), "%d", i + 1);
+        ImVec2 keySz = ImGui::CalcTextSize(keyHint);
+        dl->AddText(NULL, 18.0f,
+                    ImVec2(br.x - pad - keySz.x - 4, br.y - pad - 20),
+                    ImGui::ColorConvertFloat4ToU32(cyan), keyHint);
+        ImGui::PopFont();
+
+        ImGui::PopID();
     }
 
-    ImGui::Dummy(ImVec2(0, 24));
-    if (centered_button("Back", ImVec2(160, 40)))
-    {
-        state = AppState::TITLE;
-    }
+    // ── Minimal bottom bar — same recipe as landing, hint set for this screen.
+    const float barH = 44.0f;
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2(0, sz.y - barH), ImVec2(sz.x, sz.y),
+        IM_COL32(8, 10, 16, 190), 0.0f);
+    ImGui::GetWindowDrawList()->AddLine(
+        ImVec2(0,     sz.y - barH),
+        ImVec2(sz.x, sz.y - barH),
+        IM_COL32(180, 145, 90, 110), 1.0f);
+
+    const float textY  = sz.y - barH + (barH - 16) * 0.5f;
+    const float barPad = 32.0f;
+    float xCur = barPad;
+    auto draw_pair = [&](const char* key, const ImVec4& keyCol, const char* desc, bool last) {
+        ImGui::SetCursorPos(ImVec2(xCur, textY));
+        ImGui::PushStyleColor(ImGuiCol_Text, keyCol);
+        ImGui::TextUnformatted(key);
+        ImGui::PopStyleColor();
+        xCur += ImGui::CalcTextSize(key).x + 10.0f;
+        ImGui::SetCursorPos(ImVec2(xCur, textY));
+        ImGui::PushStyleColor(ImGuiCol_Text, cream);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopStyleColor();
+        xCur += ImGui::CalcTextSize(desc).x + 22.0f;
+        if (!last) {
+            ImGui::SetCursorPos(ImVec2(xCur, textY));
+            ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
+            ImGui::TextUnformatted("·");
+            ImGui::PopStyleColor();
+            xCur += ImGui::CalcTextSize("·").x + 22.0f;
+        }
+    };
+    draw_pair("1-8",   cyan,    "enter shape", false);
+    draw_pair("ESC",   magenta, "back",        true);
 
     ImGui::End();
 }
