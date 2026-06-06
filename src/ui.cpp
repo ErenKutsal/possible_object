@@ -142,8 +142,10 @@ static ImGuiWindowFlags fullscreen_window_flags()
 }
 
 // Draw the Escher landing image full-bleed plus a soft vertical darkening
-// so overlay text and buttons read clearly against the busy stone scene.
-static void draw_landing_background()
+// so overlay text reads clearly against the busy stone scene. `vignetteAmt`
+// scales the dark overlay (1.0 = strong title-screen darkening, 0.4 = light
+// menu darkening so the underlying render breathes through the card grid).
+static void draw_landing_background(float vignetteAmt = 1.0f)
 {
     if (!g_landing_tex) return;
     ImGuiIO& io = ImGui::GetIO();
@@ -152,13 +154,12 @@ static void draw_landing_background()
     dl->AddImage((ImTextureID)(intptr_t)g_landing_tex,
                  ImVec2(0, 0), sz,
                  ImVec2(0, 0), ImVec2(1, 1));
-    // Vertical gradient darkening (top lighter → bottom darker) so the
-    // bottom-right button cluster sits on a deeper backdrop. Picked to read
-    // as a soft vignette, not a hard overlay.
+    int aTop = (int)(60  * vignetteAmt);
+    int aBot = (int)(170 * vignetteAmt);
     dl->AddRectFilledMultiColor(
         ImVec2(0, 0), sz,
-        IM_COL32(0,  0,  0,  60),  IM_COL32(0,  0,  0,  60),
-        IM_COL32(0,  0, 10, 170),  IM_COL32(0,  0, 10, 170));
+        IM_COL32(0,  0,  0,  aTop),  IM_COL32(0,  0,  0,  aTop),
+        IM_COL32(0,  0, 10, aBot),   IM_COL32(0,  0, 10, aBot));
 }
 
 // ─── Title screen ────────────────────────────────────────────────────────
@@ -238,7 +239,9 @@ static void draw_title(AppState& state, GLFWwindow* window)
 // brass-rim translucent-panel treatment.
 static void draw_shrine_select(AppState& state, int& selected_shape)
 {
-    draw_landing_background();
+    // Lighter vignette on the menu — the cards stack on top and would otherwise
+    // crush the underlying render into mud.
+    draw_landing_background(0.35f);
 
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 sz = io.DisplaySize;
@@ -250,8 +253,11 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
     const ImVec4 dimcream = ImVec4(0.84f, 0.78f, 0.68f, 0.92f);
     const ImVec4 magenta  = ImVec4(0.94f, 0.46f, 0.66f, 1.00f);
     const ImVec4 cyan     = ImVec4(0.50f, 0.86f, 0.90f, 1.00f);
-    const ImU32  panelBg  = IM_COL32(10, 12, 18, 195);
-    const ImU32  panelRim = IM_COL32(180, 145, 90, 110);
+    // Card panels lighter than the title — alpha 130 instead of 195 — so the
+    // Escher render visibly continues through the menu rather than being
+    // walled off behind opaque chips.
+    const ImU32  panelBg  = IM_COL32(16, 18, 26, 130);
+    const ImU32  panelRim = IM_COL32(200, 165, 110, 130);
 
     // ── Title, upper-left to mirror the landing layout.
     ImGui::SetCursorPos(ImVec2(72, 72));
