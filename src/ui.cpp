@@ -172,12 +172,12 @@ static void draw_title(AppState& state, GLFWwindow* window)
     ImGui::SetNextWindowSize(sz);
     ImGui::Begin("##title", nullptr, fullscreen_window_flags());
 
-    // ── Title block, upper-left (echoes the cyan/teal light pool on the
-    // upper-left of the Escher render so the text sits in the lit area).
+    // ── Title — upper-left, over the cyan light pool. No subtitle, no
+    // panel; just the words sitting in the lit corner of the render.
     const ImVec4 cream   = ImVec4(0.96f, 0.92f, 0.83f, 1.0f);
-    const ImVec4 dimcream= ImVec4(0.86f, 0.80f, 0.70f, 0.95f);
-    const ImVec4 magenta = ImVec4(0.92f, 0.40f, 0.62f, 0.95f);
-    const ImVec4 cyan    = ImVec4(0.42f, 0.82f, 0.86f, 0.95f);
+    const ImVec4 dimcream= ImVec4(0.84f, 0.78f, 0.68f, 0.92f);
+    const ImVec4 magenta = ImVec4(0.94f, 0.46f, 0.66f, 1.00f);
+    const ImVec4 cyan    = ImVec4(0.50f, 0.86f, 0.90f, 1.00f);
 
     ImGui::SetCursorPos(ImVec2(72, 72));
     ImGui::PushStyleColor(ImGuiCol_Text, cream);
@@ -186,71 +186,49 @@ static void draw_title(AppState& state, GLFWwindow* window)
     ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
 
-    ImGui::SetCursorPos(ImVec2(76, 160));
-    ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
-    ImGui::SetWindowFontScale(1.3f);
-    ImGui::TextUnformatted("An interactive showcase of optical illusions");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
-
-    // ── Key hint, bottom-right. No buttons — input is driven from the
-    // keyboard (ENTER → start, M → menu, ESC → quit) which the main key
-    // callback handles. The hint sits in a translucent dark panel with the
-    // same brass-tone rim as before so the bottom-right still has a focal
-    // anchor and the user knows what to press.
-    const float pad    = 22.0f;
-    const float panW   = 360.0f;
-    const float panH   = 168.0f;
-    const float margin = 56.0f;
-    const ImVec2 panTL(sz.x - panW - margin, sz.y - panH - margin);
-    const ImVec2 panBR(panTL.x + panW, panTL.y + panH);
-
+    // ── Minimal direction bar pinned to the very bottom of the window.
+    // A thin translucent strip with the three key hints inline, separated
+    // by faint divider dots. Reads like an editor status bar — present
+    // but quiet enough to step aside for the Escher render behind it.
+    const float barH    = 44.0f;
+    const float barPadX = 32.0f;
+    const ImVec2 barTL(0.0f,        sz.y - barH);
+    const ImVec2 barBR(sz.x,        sz.y);
     ImGui::GetWindowDrawList()->AddRectFilled(
-        panTL, panBR, IM_COL32(10, 12, 18, 195), 14.0f);
-    ImGui::GetWindowDrawList()->AddRect(
-        panTL, panBR, IM_COL32(180, 145, 90, 110), 14.0f, 0, 1.5f);
+        barTL, barBR, IM_COL32(8, 10, 16, 190), 0.0f);
+    // Hairline brass rule along the top edge — picks up the gold rails.
+    ImGui::GetWindowDrawList()->AddLine(
+        ImVec2(0.0f, sz.y - barH),
+        ImVec2(sz.x, sz.y - barH),
+        IM_COL32(180, 145, 90, 110), 1.0f);
 
-    // "ENTER" — magenta (echoes the pink window glow on the right)
-    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad));
-    ImGui::PushStyleColor(ImGuiCol_Text, magenta);
-    ImGui::SetWindowFontScale(1.4f);
-    ImGui::TextUnformatted("ENTER");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
-    ImGui::SameLine(panTL.x + pad + 110 - ImGui::GetWindowPos().x);
-    ImGui::PushStyleColor(ImGuiCol_Text, cream);
-    ImGui::SetWindowFontScale(1.15f);
-    ImGui::TextUnformatted("begin journey");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
+    // Stack the hints from the LEFT of the bar, vertically centered.
+    const float textY = sz.y - barH + (barH - 16) * 0.5f;
+    float xCur = barPadX;
+    auto draw_pair = [&](const char* key, const ImVec4& keyCol, const char* desc, bool last) {
+        ImGui::SetCursorPos(ImVec2(xCur, textY));
+        ImGui::PushStyleColor(ImGuiCol_Text, keyCol);
+        ImGui::TextUnformatted(key);
+        ImGui::PopStyleColor();
+        xCur += ImGui::CalcTextSize(key).x + 10.0f;
 
-    // "M" — cyan (echoes the upper-left teal light pool)
-    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + 46));
-    ImGui::PushStyleColor(ImGuiCol_Text, cyan);
-    ImGui::SetWindowFontScale(1.4f);
-    ImGui::TextUnformatted("M");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
-    ImGui::SameLine(panTL.x + pad + 110 - ImGui::GetWindowPos().x);
-    ImGui::PushStyleColor(ImGuiCol_Text, cream);
-    ImGui::SetWindowFontScale(1.15f);
-    ImGui::TextUnformatted("shrine select");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
+        ImGui::SetCursorPos(ImVec2(xCur, textY));
+        ImGui::PushStyleColor(ImGuiCol_Text, cream);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopStyleColor();
+        xCur += ImGui::CalcTextSize(desc).x + 22.0f;
 
-    // "ESC" — neutral dim, less prominent
-    ImGui::SetCursorPos(ImVec2(panTL.x + pad, panTL.y + pad + 92));
-    ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
-    ImGui::SetWindowFontScale(1.4f);
-    ImGui::TextUnformatted("ESC");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
-    ImGui::SameLine(panTL.x + pad + 110 - ImGui::GetWindowPos().x);
-    ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
-    ImGui::SetWindowFontScale(1.15f);
-    ImGui::TextUnformatted("quit");
-    ImGui::SetWindowFontScale(1.0f);
-    ImGui::PopStyleColor();
+        if (!last) {
+            ImGui::SetCursorPos(ImVec2(xCur, textY));
+            ImGui::PushStyleColor(ImGuiCol_Text, dimcream);
+            ImGui::TextUnformatted("·");
+            ImGui::PopStyleColor();
+            xCur += ImGui::CalcTextSize("·").x + 22.0f;
+        }
+    };
+    draw_pair("ENTER", magenta, "begin journey",  false);
+    draw_pair("M",     cyan,    "shrine select",  false);
+    draw_pair("ESC",   dimcream,"quit",           true);
 
     ImGui::End();
 }
