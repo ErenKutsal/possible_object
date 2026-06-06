@@ -1,51 +1,41 @@
 #include "obj_shape.h"
 
 // Impossible Arch — loaded from models/impossible_arch.obj
-// (Paradox Toolkit primitive).
+// (Paradox Toolkit primitive). Lava effect variant.
 
 static ObjShape g_shape;
 
-// ── Firelight halo (per-slot background pre-pass) ───────────────────────────
-// Concept: the lava on the figure is a light source that warms the air around
-// it. Implementation: a fullscreen quad at the far depth, painting the shared
-// pale slate plus a soft gaussian warm spill centred on the figure's screen
-// position. Intensity ramps up across the lava reveal so the surroundings
-// visibly heat up as the molten cracks ignite, then holds while the ambient
-// sweep continues. Pedagogically: the cheapest "object lights its environment"
-// effect — one additive falloff, no FBO chain, but it stops the figure from
-// reading as a sticker pasted onto the slate.
-static GLuint  halo_program        = 0;
-static GLuint  halo_vao            = 0;
-static GLuint  halo_vbo            = 0;
-static GLint   halo_baseLoc        = -1;
-static GLint   halo_colorLoc       = -1;
-static GLint   halo_centerLoc      = -1;
-static GLint   halo_amountLoc      = -1;
-static GLint   halo_falloffLoc     = -1;
+// ── Lava Background (fades in when finished) ─────────────────────────────────
+// Uses the same fullscreen quad geometry as the old halo, but now drives
+// fshader_lava_background which draws an animated volcanic scene that fades
+// in from the neutral slate clear colour as the puzzle is completed.
+static GLuint  bg_program    = 0;
+static GLuint  bg_vao        = 0;
+static GLuint  bg_vbo        = 0;
+static GLint   bg_baseLoc    = -1;
+static GLint   bg_timeLoc    = -1;
+static GLint   bg_amountLoc  = -1;
 
-static void halo_init()
+static void bg_init()
 {
-    halo_program = InitShader("../shaders/vshader_halo.glsl",
-                              "../shaders/fshader_halo.glsl");
-    halo_baseLoc    = glGetUniformLocation(halo_program, "uBaseColor");
-    halo_colorLoc   = glGetUniformLocation(halo_program, "uHaloColor");
-    halo_centerLoc  = glGetUniformLocation(halo_program, "uHaloCenter");
-    halo_amountLoc  = glGetUniformLocation(halo_program, "uHaloAmount");
-    halo_falloffLoc = glGetUniformLocation(halo_program, "uHaloFalloff");
+    bg_program  = InitShader("../shaders/vshader_halo.glsl",
+                             "../shaders/fshader_lava_background.glsl");
+    bg_baseLoc   = glGetUniformLocation(bg_program, "uBaseColor");
+    bg_timeLoc   = glGetUniformLocation(bg_program, "uTime");
+    bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");
 
-    // Fullscreen triangle strip — 4 NDC corners.
     static const float quad[] = {
         -1.0f, -1.0f,
          1.0f, -1.0f,
         -1.0f,  1.0f,
          1.0f,  1.0f,
     };
-    glGenVertexArrays(1, &halo_vao);
-    glBindVertexArray(halo_vao);
-    glGenBuffers(1, &halo_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, halo_vbo);
+    glGenVertexArrays(1, &bg_vao);
+    glBindVertexArray(bg_vao);
+    glGenBuffers(1, &bg_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, bg_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
-    GLint aPos = glGetAttribLocation(halo_program, "aPos");
+    GLint aPos = glGetAttribLocation(bg_program, "aPos");
     glEnableVertexAttribArray(aPos);
     glVertexAttribPointer(aPos, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
     glBindVertexArray(0);
@@ -88,7 +78,7 @@ void arch_init()
     g_shape.setCustomLight(vec3(-0.45f, 0.32f, 0.82f));     // low warm sun, front-left
     g_shape.setCustomLightColor(vec3(1.00f, 0.74f, 0.48f)); // amber
 
-    halo_init();
+    bg_init();
 
     // No ball orbit on this slot — only slots 1 (procedural polygon) and
     // 2 (Penrose Triangle) keep their rolling indicator.
@@ -96,14 +86,10 @@ void arch_init()
 
 void arch_display()
 {
-    // ── Halo pre-pass: paint the background with a warm radial spill from
-    // the figure. Same pale slate as every other slot at the corners, warming
-    // toward amber at the figure. Amount ramps over the lava reveal so the
-    // scene visibly heats up alongside the cracks igniting.
-    //
-    // LAVA_DELAY = 0.7s (must match fshader_impossible) — the wait before the
-    // lava starts loading. Halo fades in over the same window the lava trace
-    // sweeps, hits full strength as the trace completes, then holds.
+    // Derive the same reveal progress as fshader_impossible.glsl so the
+    // volcanic background fades in in sync with the lava cracks filling.
+    //   LAVA_DELAY = 0.7s — bare rock wait before the sweep starts
+    //   LAVA_TRACE = 6.0s — sweep duration
     constexpr float LAVA_DELAY = 0.7f;
     constexpr float LAVA_TRACE = 6.0f;
     float lavaT  = g_shape.postSolveTime - LAVA_DELAY;
@@ -113,13 +99,13 @@ void arch_display()
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glUseProgram(halo_program);
-    glUniform3f(halo_baseLoc,    0.75f, 0.78f, 0.80f);   // pale slate base
-    glUniform3f(halo_colorLoc,   1.00f, 0.55f, 0.22f);   // warm amber spill
-    glUniform2f(halo_centerLoc,  0.10f, 0.06f);          // figure centre in NDC, measured from captures
-    glUniform1f(halo_amountLoc,  amount * 0.65f);        // cap so the halo never overpowers the figure
-    glUniform1f(halo_falloffLoc, 2.0f);                  // wide spill — reads as ambient warmth, not a spotlight
-    glBindVertexArray(halo_vao);
+    // Draw the animated lava/forge background — stays neutral before solve,
+    // gradually reveals as the lava cracks ignite the arch.
+    glUseProgram(bg_program);
+    glUniform3f(bg_baseLoc,   0.75f, 0.78f, 0.80f);   // pale slate base
+    glUniform1f(bg_timeLoc,   (float)glfwGetTime());
+    glUniform1f(bg_amountLoc, amount);
+    glBindVertexArray(bg_vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
 
