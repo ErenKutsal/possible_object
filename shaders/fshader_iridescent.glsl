@@ -58,6 +58,25 @@ float D_GGX(float NdotH, float roughness)
     return a2 / (PI * d * d);
 }
 
+// ── Anisotropic GGX (Heitz 2014, Burley 2012 form) ────────────────────
+// Same GGX distribution but two different α values along the surface's
+// tangent (αt) and binormal (αb) axes. When αt = αb this reduces EXACTLY
+// to the isotropic D_GGX above (you can verify: TdotH²+BdotH² = 1-NdotH²,
+// so the bracket collapses to (1-NdotH²)/α² + NdotH² = ((α²-1)NdotH²+1)/α²
+// → matches the isotropic denominator after rescaling).
+//
+// Geometrically: the microfacet distribution is elongated along T when
+// αt > αb, so highlights stretch in that direction — the visual signature
+// of brushed metal. Implementation references Karis "Real Shading in
+// Unreal Engine 4" (2013) and Filament's PBR documentation.
+float D_GGX_aniso(float NdotH, float TdotH, float BdotH, float at, float ab)
+{
+    float dt = TdotH / at;
+    float db = BdotH / ab;
+    float d  = dt * dt + db * db + NdotH * NdotH;
+    return 1.0 / (PI * at * ab * d * d);
+}
+
 // Schlick-GGX geometry term for one direction.
 float G_SchlickGGX(float NdotX, float roughness)
 {
@@ -70,6 +89,38 @@ float G_SchlickGGX(float NdotX, float roughness)
 float G_Smith(float NdotV, float NdotL, float roughness)
 {
     return G_SchlickGGX(NdotV, roughness) * G_SchlickGGX(NdotL, roughness);
+}
+
+// ── Smith G for anisotropic GGX (Heitz 2014) ──────────────────────────
+// Lambda function is the integrated shadowing/masking for the anisotropic
+// distribution; the separable G is just G1(V)·G1(L) where G1 = 1/(1+Λ).
+// Properly accounts for shadowing being stretched along the brush axis.
+float Lambda_aniso(float ZdotN, float ZdotT, float ZdotB, float at, float ab)
+{
+    float numer = at * at * ZdotT * ZdotT + ab * ab * ZdotB * ZdotB;
+    float denom = ZdotN * ZdotN;
+    return (-1.0 + sqrt(1.0 + numer / max(denom, 0.0001))) * 0.5;
+}
+float G_Smith_aniso(
+    float NdotV, float TdotV, float BdotV,
+    float NdotL, float TdotL, float BdotL,
+    float at, float ab)
+{
+    float lam_v = Lambda_aniso(NdotV, TdotV, BdotV, at, ab);
+    float lam_l = Lambda_aniso(NdotL, TdotL, BdotL, at, ab);
+    return 1.0 / ((1.0 + lam_v) * (1.0 + lam_l));
+}
+
+// ── Tangent frame from N alone — seam-safe brushed-metal axis ─────────
+// Pick a stable "anchor" direction (world up), project it onto the face
+// plane → that's the brushing axis T. B completes the right-handed frame.
+// Function of N only → identical at the magic join, so the anisotropic
+// highlight stays seamless across aligned bars.
+void make_tangent_frame(vec3 N, out vec3 T, out vec3 B)
+{
+    vec3 ref = abs(N.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    T = normalize(ref - N * dot(ref, N));
+    B = cross(N, T);
 }
 
 // Schlick approximation of Fresnel.
@@ -127,9 +178,28 @@ void main()
     // Dielectric F0 = 0.04 (water/plastic). Metals override with albedo.
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
-    // ── 1. Direct-light specular (Cook-Torrance) ─────────────────────
-    float D = D_GGX(NdotH, roughness);
-    float G = G_Smith(NdotV, NdotL, roughness);
+    // ── Brushed-metal tangent frame + anisotropic roughness ──────────
+    // Disney's aspect parametrisation: anisotropic ∈ [0,1] stretches the
+    // GGX distribution along T while area-preserving across B, so total
+    // highlight energy stays the same. anisotropic=0 → exactly isotropic;
+    // 0.85 ≈ heavily brushed industrial steel. Both αt and αb are in α
+    // (= roughness²) space, matching the existing D_GGX convention.
+    vec3 T, B;
+    make_tangent_frame(N, T, B);
+    const float anisotropic = 0.85;
+    float aspect = sqrt(1.0 - 0.9 * anisotropic);
+    float alpha  = roughness * roughness;
+    float at     = max(alpha / aspect, 0.001);
+    float ab     = max(alpha * aspect, 0.001);
+
+    // Cache the tangent-frame dot products the anisotropic D and G need.
+    float TdotV = dot(T, V), BdotV = dot(B, V);
+    float TdotL = dot(T, L), BdotL = dot(B, L);
+    float TdotH = dot(T, H), BdotH = dot(B, H);
+
+    // ── 1. Direct-light specular (anisotropic Cook-Torrance) ─────────
+    float D = D_GGX_aniso(NdotH, TdotH, BdotH, at, ab);
+    float G = G_Smith_aniso(NdotV, TdotV, BdotV, NdotL, TdotL, BdotL, at, ab);
     vec3  F = F_Schlick(VdotH, F0);
 
     vec3 specBRDF = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
@@ -146,13 +216,20 @@ void main()
     vec3 Lo = (kD * albedo / PI + specBRDF) * directLight * NdotL;
 
     // ── 2. Image-based specular (env cubemap, roughness-mipped) ──────
-    // Reflect the view direction around the surface normal, rotate by the
-    // skybox's animated rotation, sample the prefiltered cubemap at the
-    // mip level matching our roughness.
-    vec3 R    = reflect(-V, N);
-    vec3 Rrot = rotateY(R, uSkyboxRotation);
-    float mip = roughness * uMaxEnvMip;
-    vec3 envSpec = textureLod(uEnvMap, Rrot, mip).rgb;
+    // Anisotropic IBL is an open research topic; the standard fast approx
+    // (McAuley 2015, Filament docs) is a "BENT NORMAL" — tilt N toward the
+    // anisotropic axis so the reflection vector samples in the direction
+    // the highlight should stretch. Combined with the average-roughness
+    // mip level, this matches the direct-light anisotropy well enough that
+    // the brushed sheen and the env reflection agree.
+    vec3 anisoB    = cross(B, V);
+    vec3 anisoT    = normalize(cross(anisoB, B));
+    vec3 bentN     = normalize(mix(N, anisoT, anisotropic * (1.0 - roughness)));
+    vec3 R         = reflect(-V, bentN);
+    vec3 Rrot      = rotateY(R, uSkyboxRotation);
+    float mipAlpha = sqrt(0.5 * (at + ab));            // perceptual roughness for mip
+    float mip      = mipAlpha * uMaxEnvMip;
+    vec3 envSpec   = textureLod(uEnvMap, Rrot, mip).rgb;
 
     // Fresnel-roughness modulation. IBL contribution is DIMMED (was 1.0)
     // because we want the orbiting point light to be the visually dominant
