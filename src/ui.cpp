@@ -10,12 +10,21 @@
 
 #include <cstdio>
 
-#define SHRINE_COUNT 8
-static const char* SHRINE_THEMES[SHRINE_COUNT] = {
-    "Floral", "Stone", "Water", "Fire", "Cosmic", "Forge", "Glass", "Iron",
+#define LEVEL_COUNT 8
+// Only slots 4 (lava) and 5 (metallic) have finalised themes — the rest are
+// placeholders waiting on a decision. Update once a slot's identity is settled.
+static const char* LEVEL_THEMES[LEVEL_COUNT] = {
+    "—",        // 0 — placeholder
+    "—",        // 1 — placeholder
+    "—",        // 2 — placeholder
+    "—",        // 3 — placeholder
+    "Lava",     // 4 — Impossible Arch (generative rock + lava + halo)
+    "Metallic", // 5 — Impossible Arch (round, anisotropic chrome)
+    "—",        // 6 — placeholder
+    "—",        // 7 — placeholder
 };
 
-static const char* SHRINE_NAMES[SHRINE_COUNT] = {
+static const char* LEVEL_NAMES[LEVEL_COUNT] = {
     "Impossible Polygon",         // 0
     "Penrose Triangle",           // 1 — OBJ
     "Blocked Penrose (Blender)",  // 2 — OBJ pair of #1
@@ -26,15 +35,18 @@ static const char* SHRINE_NAMES[SHRINE_COUNT] = {
     "Reutersvard Rectangle",      // 7 — OBJ
 };
 
-static const ImVec4 SHRINE_TINTS[SHRINE_COUNT] = {
-    ImVec4(0.55f, 0.72f, 0.45f, 1.0f),  // Floral — mossy green
-    ImVec4(0.62f, 0.62f, 0.60f, 1.0f),  // Stone — neutral grey
-    ImVec4(0.40f, 0.62f, 0.78f, 1.0f),  // Water — slate blue
-    ImVec4(0.85f, 0.50f, 0.30f, 1.0f),  // Fire — ember orange
-    ImVec4(0.55f, 0.45f, 0.78f, 1.0f),  // Cosmic — violet
-    ImVec4(0.80f, 0.70f, 0.45f, 1.0f),  // Forge — brass / warm gold
-    ImVec4(0.65f, 0.78f, 0.82f, 1.0f),  // Glass — pale cyan
-    ImVec4(0.55f, 0.55f, 0.60f, 1.0f),  // Iron — steel grey
+// Tints — only slots 4 and 5 have finalised colours that actually match
+// what the figure does on-screen. Unfinalised slots get a neutral cream so
+// the menu doesn't claim a theme that hasn't been chosen yet.
+static const ImVec4 LEVEL_TINTS[LEVEL_COUNT] = {
+    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 0 — placeholder cream
+    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 1 — placeholder cream
+    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 2 — placeholder cream
+    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 3 — placeholder cream
+    ImVec4(0.96f, 0.50f, 0.18f, 1.0f),  // 4 — Lava: warm ember orange (matches the halo)
+    ImVec4(0.80f, 0.85f, 0.92f, 1.0f),  // 5 — Metallic: cool brushed-chrome silver
+    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 6 — placeholder cream
+    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 7 — placeholder cream
 };
 
 // ── Landing background image (Escher-style impossible architecture) ──────
@@ -165,7 +177,10 @@ static void draw_landing_background(float vignetteAmt = 1.0f)
 // ─── Title screen ────────────────────────────────────────────────────────
 static void draw_title(AppState& state, GLFWwindow* window)
 {
-    draw_landing_background();
+    // Match the level-select brightness: a light vignette so the Escher
+    // render reads clearly, with just enough darken at the bottom to keep
+    // the status bar legible.
+    draw_landing_background(0.25f);
 
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 sz = io.DisplaySize;
@@ -228,20 +243,20 @@ static void draw_title(AppState& state, GLFWwindow* window)
         }
     };
     draw_pair("ENTER", magenta, "begin journey",  false);
-    draw_pair("M",     cyan,    "shrine select",  true);
+    draw_pair("M",     cyan,    "level select",  true);
 
     ImGui::End();
 }
 
-// ─── Shrine select ───────────────────────────────────────────────────────
+// ─── Level select ────────────────────────────────────────────────────────
 // Same Escher backdrop and minimal bottom bar as the landing — the two
 // screens read as one continuous antechamber. Cards in a 4×2 grid with the
 // brass-rim translucent-panel treatment.
-static void draw_shrine_select(AppState& state, int& selected_shape)
+static void draw_level_select(AppState& state, int& selected_shape)
 {
-    // Lighter vignette on the menu — the cards stack on top and would otherwise
-    // crush the underlying render into mud.
-    draw_landing_background(0.35f);
+    // Light vignette — same level as the title — so the Escher render
+    // reads brightly behind the cards.
+    draw_landing_background(0.25f);
 
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 sz = io.DisplaySize;
@@ -263,7 +278,7 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
     ImGui::SetCursorPos(ImVec2(72, 72));
     ImGui::PushStyleColor(ImGuiCol_Text, cream);
     ImGui::SetWindowFontScale(3.0f);
-    ImGui::TextUnformatted("Shrine Select");
+    ImGui::TextUnformatted("Level Select");
     ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
 
@@ -278,7 +293,7 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
     const float gridX0 = (sz.x - gridW) * 0.5f;
     const float gridY0 = 200.0f;
 
-    for (int i = 0; i < SHRINE_COUNT; i++)
+    for (int i = 0; i < LEVEL_COUNT; i++)
     {
         int   r = i / cols;
         int   c = i % cols;
@@ -301,16 +316,16 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
         }
         ImGui::PopStyleColor(3);
 
-        // Card body: shrine theme (tinted), shape number (cream small), shape
+        // Card body: level theme (tinted), shape number (cream small), shape
         // name wrapped. Painted via ImDrawList so they don't intercept the
         // button click.
         ImDrawList* dl = ImGui::GetWindowDrawList();
         const float pad = 18.0f;
-        // Theme heading — bigger, in the shrine's hue
+        // Theme heading — bigger, in the level's hue
         ImGui::PushFont(ImGui::GetFont());
         dl->AddText(NULL, 22.0f, ImVec2(tl.x + pad, tl.y + pad),
-                    ImGui::ColorConvertFloat4ToU32(SHRINE_TINTS[i]),
-                    SHRINE_THEMES[i]);
+                    ImGui::ColorConvertFloat4ToU32(LEVEL_TINTS[i]),
+                    LEVEL_THEMES[i]);
         // Slot label
         char slot[16];
         snprintf(slot, sizeof(slot), "Shape %d", i + 1);
@@ -318,7 +333,7 @@ static void draw_shrine_select(AppState& state, int& selected_shape)
                     ImGui::ColorConvertFloat4ToU32(dimcream), slot);
         // Shape name (cream)
         dl->AddText(NULL, 14.0f, ImVec2(tl.x + pad, tl.y + pad + 68),
-                    ImGui::ColorConvertFloat4ToU32(cream), SHRINE_NAMES[i]);
+                    ImGui::ColorConvertFloat4ToU32(cream), LEVEL_NAMES[i]);
         // Small key hint at bottom-right of card
         char keyHint[8];
         snprintf(keyHint, sizeof(keyHint), "%d", i + 1);
@@ -373,6 +388,6 @@ void ui_draw_menu(AppState& state, int& selected_shape, GLFWwindow* window)
 {
     if (state == AppState::TITLE)
         draw_title(state, window);
-    else if (state == AppState::SHRINE_SELECT)
-        draw_shrine_select(state, selected_shape);
+    else if (state == AppState::LEVEL_SELECT)
+        draw_level_select(state, selected_shape);
 }

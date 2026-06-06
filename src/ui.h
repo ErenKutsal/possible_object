@@ -4,7 +4,7 @@
 enum class AppState
 {
     TITLE,
-    SHRINE_SELECT,
+    LEVEL_SELECT,
     IN_SHAPE
 };
 

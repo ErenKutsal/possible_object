@@ -55,7 +55,7 @@ struct ObjShape
 
     // Optional per-slot light COLOR (Tier 2). Defaults to white (neutral) so
     // slots that don't set it look exactly as before. A warm/cool tint gives
-    // each shrine its own mood. This is a single global value per draw, so it
+    // each level its own mood. This is a single global value per draw, so it
     // never reintroduces a seam at the solved join (see fshader_impossible).
     vec3   customLightColor = vec3(1.0f, 1.0f, 1.0f);
     void   setCustomLightColor(const vec3& c) { customLightColor = c; }

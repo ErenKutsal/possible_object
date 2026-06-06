@@ -114,7 +114,7 @@ void arch_display()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(halo_program);
-    glUniform3f(halo_baseLoc,    0.75f, 0.78f, 0.80f);   // pale slate base
+    glUniform3f(halo_baseLoc,    0.80f, 0.74f, 0.64f);   // warm cream-beige base (matches the Escher landing's stone)
     glUniform3f(halo_colorLoc,   1.00f, 0.55f, 0.22f);   // warm amber spill
     glUniform2f(halo_centerLoc,  0.10f, 0.06f);          // figure centre in NDC, measured from captures
     glUniform1f(halo_amountLoc,  amount * 0.65f);        // cap so the halo never overpowers the figure

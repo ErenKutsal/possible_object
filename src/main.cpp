@@ -152,7 +152,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
     // Title-screen navigation:
     //   ENTER → begin journey (jump into the current shape)
-    //   M     → open the shrine-select menu
+    //   M     → open the level-select menu
     if (app_state == AppState::TITLE && action == GLFW_PRESS)
     {
         if (key == GLFW_KEY_ENTER || key == GLFW_KEY_KP_ENTER)
@@ -162,7 +162,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         }
         if (key == GLFW_KEY_M)
         {
-            app_state = AppState::SHRINE_SELECT;
+            app_state = AppState::LEVEL_SELECT;
             return;
         }
     }
@@ -176,8 +176,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         return;
     }
 
-    // Shrine select: number keys 1..8 pick that slot and enter it.
-    if (app_state == AppState::SHRINE_SELECT && action == GLFW_PRESS)
+    // Level select: number keys 1..8 pick that slot and enter it.
+    if (app_state == AppState::LEVEL_SELECT && action == GLFW_PRESS)
     {
         int target = -1;
         if      (key == GLFW_KEY_1) target = 0;
@@ -288,7 +288,7 @@ int main()
 
     ui_init(window);
 
-    glClearColor(0.75f, 0.78f, 0.80f, 1.0f);
+    glClearColor(0.80f, 0.74f, 0.64f, 1.0f);   // warm cream-beige (matches the Escher landing's stone tone)
     glEnable(GL_DEPTH_TEST);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
@@ -300,7 +300,7 @@ int main()
     {
         glfwPollEvents();
 
-        glClearColor(0.75f, 0.78f, 0.80f, 1.0f);
+        glClearColor(0.80f, 0.74f, 0.64f, 1.0f);   // warm cream-beige (matches the Escher landing's stone tone)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         ui_begin_frame();
