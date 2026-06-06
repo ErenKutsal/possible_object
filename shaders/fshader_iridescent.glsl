@@ -58,17 +58,19 @@ float D_GGX(float NdotH, float roughness)
     return a2 / (PI * d * d);
 }
 
-// ── Anisotropic GGX (Heitz 2014, Burley 2012 form) ────────────────────
-// Same GGX distribution but two different α values along the surface's
-// tangent (αt) and binormal (αb) axes. When αt = αb this reduces EXACTLY
-// to the isotropic D_GGX above (you can verify: TdotH²+BdotH² = 1-NdotH²,
-// so the bracket collapses to (1-NdotH²)/α² + NdotH² = ((α²-1)NdotH²+1)/α²
-// → matches the isotropic denominator after rescaling).
+// ── Anisotropic GGX NDF and Smith G ───────────────────────────────────
+// Burley, "Physically-Based Shading at Disney", SIGGRAPH 2012 — gives the
+// practical anisotropic D form and the aspect parametrisation (used in
+// main() below). Heitz, "Understanding the Masking-Shadowing Function in
+// Microfacet-Based BRDFs", JCGT 2014 — derives the anisotropic Lambda
+// function for the Smith G (Section 5).
 //
-// Geometrically: the microfacet distribution is elongated along T when
-// αt > αb, so highlights stretch in that direction — the visual signature
-// of brushed metal. Implementation references Karis "Real Shading in
-// Unreal Engine 4" (2013) and Filament's PBR documentation.
+// D collapses EXACTLY to the isotropic D_GGX above when αt = αb (you can
+// verify: TdotH² + BdotH² = 1 - NdotH², so the bracket reduces to the
+// same denominator as the isotropic case up to a rescale).
+//
+// Geometrically: elongating the microfacet distribution along T stretches
+// the highlight in that direction — the visual signature of brushed metal.
 float D_GGX_aniso(float NdotH, float TdotH, float BdotH, float at, float ab)
 {
     float dt = TdotH / at;
@@ -91,10 +93,9 @@ float G_Smith(float NdotV, float NdotL, float roughness)
     return G_SchlickGGX(NdotV, roughness) * G_SchlickGGX(NdotL, roughness);
 }
 
-// ── Smith G for anisotropic GGX (Heitz 2014) ──────────────────────────
-// Lambda function is the integrated shadowing/masking for the anisotropic
-// distribution; the separable G is just G1(V)·G1(L) where G1 = 1/(1+Λ).
-// Properly accounts for shadowing being stretched along the brush axis.
+// Lambda function (Heitz 2014 eq. 86) — integrated shadowing/masking for
+// the anisotropic GGX. The separable Smith G is G1(V)·G1(L), G1 = 1/(1+Λ);
+// properly accounts for shadowing being stretched along the brush axis.
 float Lambda_aniso(float ZdotN, float ZdotT, float ZdotB, float at, float ab)
 {
     float numer = at * at * ZdotT * ZdotT + ab * ab * ZdotB * ZdotB;
@@ -179,11 +180,10 @@ void main()
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
     // ── Brushed-metal tangent frame + anisotropic roughness ──────────
-    // Disney's aspect parametrisation: anisotropic ∈ [0,1] stretches the
-    // GGX distribution along T while area-preserving across B, so total
-    // highlight energy stays the same. anisotropic=0 → exactly isotropic;
-    // 0.85 ≈ heavily brushed industrial steel. Both αt and αb are in α
-    // (= roughness²) space, matching the existing D_GGX convention.
+    // Burley's aspect parametrisation (referenced above): anisotropic ∈
+    // [0,1] stretches the GGX along T while area-preserving across B, so
+    // total highlight energy stays the same. anisotropic=0 recovers the
+    // isotropic case exactly; 0.85 ≈ heavily-brushed industrial steel.
     vec3 T, B;
     make_tangent_frame(N, T, B);
     const float anisotropic = 0.85;
@@ -216,12 +216,12 @@ void main()
     vec3 Lo = (kD * albedo / PI + specBRDF) * directLight * NdotL;
 
     // ── 2. Image-based specular (env cubemap, roughness-mipped) ──────
-    // Anisotropic IBL is an open research topic; the standard fast approx
-    // (McAuley 2015, Filament docs) is a "BENT NORMAL" — tilt N toward the
-    // anisotropic axis so the reflection vector samples in the direction
-    // the highlight should stretch. Combined with the average-roughness
-    // mip level, this matches the direct-light anisotropy well enough that
-    // the brushed sheen and the env reflection agree.
+    // Real anisotropic IBL needs per-direction prefiltering, which we
+    // don't have. The cheap approximation used here is a "bent normal":
+    // tilt N toward the anisotropy axis before reflecting, so the cubemap
+    // sample lands in the direction the highlight should stretch. The
+    // mip is picked from the average roughness so the env blur magnitude
+    // matches the direct-light highlight's average spread.
     vec3 anisoB    = cross(B, V);
     vec3 anisoT    = normalize(cross(anisoB, B));
     vec3 bentN     = normalize(mix(N, anisoT, anisotropic * (1.0 - roughness)));
