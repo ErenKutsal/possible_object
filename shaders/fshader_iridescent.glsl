@@ -180,10 +180,11 @@ void main()
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
     // ── Brushed-metal tangent frame + anisotropic roughness ──────────
-    // Burley's aspect parametrisation (referenced above): anisotropic ∈
-    // [0,1] stretches the GGX along T while area-preserving across B, so
-    // total highlight energy stays the same. anisotropic=0 recovers the
-    // isotropic case exactly; 0.85 ≈ heavily-brushed industrial steel.
+    // Burley's aspect parametrisation (referenced above) keeps the
+    // apparent highlight AREA roughly constant as the GGX stretches along
+    // T — not strictly energy-preserving (that would need multi-scatter
+    // compensation), but a good practical heuristic. anisotropic=0
+    // recovers the isotropic case exactly; 0.85 ≈ heavily-brushed steel.
     vec3 T, B;
     make_tangent_frame(N, T, B);
     const float anisotropic = 0.85;
@@ -222,9 +223,14 @@ void main()
     // sample lands in the direction the highlight should stretch. The
     // mip is picked from the average roughness so the env blur magnitude
     // matches the direct-light highlight's average spread.
-    vec3 anisoB    = cross(B, V);
-    vec3 anisoT    = normalize(cross(anisoB, B));
-    vec3 bentN     = normalize(mix(N, anisoT, anisotropic * (1.0 - roughness)));
+    //
+    // Construction: `swingAxis` is perpendicular to both the brush axis B
+    // and the view, so it spans the plane the bent normal swings IN.
+    // `bendDir` is the in-plane direction we rotate N toward; mixing it
+    // with N by `anisotropic·(1-roughness)` gives the bent normal.
+    vec3 swingAxis = cross(B, V);
+    vec3 bendDir   = normalize(cross(swingAxis, B));
+    vec3 bentN     = normalize(mix(N, bendDir, anisotropic * (1.0 - roughness)));
     vec3 R         = reflect(-V, bentN);
     vec3 Rrot      = rotateY(R, uSkyboxRotation);
     float mipAlpha = sqrt(0.5 * (at + ab));            // perceptual roughness for mip
