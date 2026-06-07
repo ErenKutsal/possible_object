@@ -38,9 +38,9 @@ static GLuint prog_gyroid;
 static GLint  gyro_eye_loc, gyro_right_loc, gyro_up_loc, gyro_fwd_loc;
 static GLint  gyro_time_loc, gyro_aspect_loc;
 
-static GLuint prog_tunnel;
-static GLint  tun_eye_loc, tun_right_loc, tun_up_loc, tun_fwd_loc;
-static GLint  tun_time_loc, tun_aspect_loc, tun_nsides_loc;
+static GLuint prog_menger;
+static GLint  mng_eye_loc, mng_right_loc, mng_up_loc, mng_fwd_loc;
+static GLint  mng_time_loc, mng_aspect_loc;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -224,15 +224,14 @@ void polygon_bg_init()
     gyro_time_loc   = glGetUniformLocation(prog_gyroid, "uTime");
     gyro_aspect_loc = glGetUniformLocation(prog_gyroid, "uAspect");
 
-    prog_tunnel = makeProgram("../shaders/vshader_quad.glsl",
-                              "../shaders/fshader_poly_bg_tunnel.glsl");
-    tun_eye_loc    = glGetUniformLocation(prog_tunnel, "uEyePos");
-    tun_right_loc  = glGetUniformLocation(prog_tunnel, "uCamRight");
-    tun_up_loc     = glGetUniformLocation(prog_tunnel, "uCamUp");
-    tun_fwd_loc    = glGetUniformLocation(prog_tunnel, "uCamForward");
-    tun_time_loc   = glGetUniformLocation(prog_tunnel, "uTime");
-    tun_aspect_loc = glGetUniformLocation(prog_tunnel, "uAspect");
-    tun_nsides_loc = glGetUniformLocation(prog_tunnel, "uNSides");
+    prog_menger = makeProgram("../shaders/vshader_quad.glsl",
+                              "../shaders/fshader_poly_bg_menger.glsl");
+    mng_eye_loc    = glGetUniformLocation(prog_menger, "uEyePos");
+    mng_right_loc  = glGetUniformLocation(prog_menger, "uCamRight");
+    mng_up_loc     = glGetUniformLocation(prog_menger, "uCamUp");
+    mng_fwd_loc    = glGetUniformLocation(prog_menger, "uCamForward");
+    mng_time_loc   = glGetUniformLocation(prog_menger, "uTime");
+    mng_aspect_loc = glGetUniformLocation(prog_menger, "uAspect");
 }
 
 void polygon_bg_begin_scene()
@@ -288,15 +287,14 @@ void polygon_bg_draw(vec3 eye, vec3 right, vec3 up, vec3 forward,
         glUniform1f (gyro_aspect_loc, aspect);
         break;
 
-    default: // ── Neon N-gon tunnel ────────────────────────────────────────
-        glUseProgram(prog_tunnel);
-        glUniform3fv(tun_eye_loc,    1, &eye.x);
-        glUniform3fv(tun_right_loc,  1, &right.x);
-        glUniform3fv(tun_up_loc,     1, &up.x);
-        glUniform3fv(tun_fwd_loc,    1, &forward.x);
-        glUniform1f (tun_time_loc,   time);
-        glUniform1f (tun_aspect_loc, aspect);
-        glUniform1i (tun_nsides_loc, nSides);
+    default: // ── Menger Sponge 3-D fractal ────────────────────────────────
+        glUseProgram(prog_menger);
+        glUniform3fv(mng_eye_loc,    1, &eye.x);
+        glUniform3fv(mng_right_loc,  1, &right.x);
+        glUniform3fv(mng_up_loc,     1, &up.x);
+        glUniform3fv(mng_fwd_loc,    1, &forward.x);
+        glUniform1f (mng_time_loc,   time);
+        glUniform1f (mng_aspect_loc, aspect);
         break;
     }
 
