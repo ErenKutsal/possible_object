@@ -204,8 +204,8 @@ struct ObjShape
             fprintf(stderr, "ObjShape::init: failed to load %s\n", objPath);
         }
 
-        const char* vs = vshaderPath ? vshaderPath : "../shaders/vshader_impossible.glsl";
-        const char* fs = fshaderPath ? fshaderPath : "../shaders/fshader_impossible.glsl";
+        const char* vs = vshaderPath ? vshaderPath : "../shaders/core/vshader_impossible.glsl";
+        const char* fs = fshaderPath ? fshaderPath : "../shaders/core/fshader_impossible.glsl";
         shaderProgram  = InitShader(vs, fs);
 
         lightLoc           = glGetUniformLocation(shaderProgram, "uLightPos");

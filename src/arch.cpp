@@ -18,7 +18,7 @@ static GLint bg_amountLoc = -1;
 
 static void bg_init()
 {
-    bg_program = InitShader("../shaders/vshader_halo.glsl", "../shaders/fshader_lava_background.glsl");
+    bg_program = InitShader("../shaders/core/vshader_halo.glsl", "../shaders/backgrounds/fshader_lava_background.glsl");
     bg_baseLoc = glGetUniformLocation(bg_program, "uBaseColor");
     bg_timeLoc = glGetUniformLocation(bg_program, "uTime");
     bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");

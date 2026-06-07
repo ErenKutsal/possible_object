@@ -185,20 +185,20 @@ void polygon_bg_init()
     makeFBO(w, h, &fbo_blur_v, &tex_blur_v, false, nullptr);
 
     // ── Bloom pipeline programs ───────────────────────────────────────────────
-    prog_bright = makeProgram("../shaders/vshader_quad.glsl",
-                              "../shaders/fshader_bright.glsl");
-    prog_blur   = makeProgram("../shaders/vshader_quad.glsl",
-                              "../shaders/fshader_blur.glsl");
-    prog_bloom  = makeProgram("../shaders/vshader_quad.glsl",
-                              "../shaders/fshader_bloom.glsl");
+    prog_bright = makeProgram("../shaders/core/vshader_quad.glsl",
+                              "../shaders/core/fshader_bright.glsl");
+    prog_blur   = makeProgram("../shaders/core/vshader_quad.glsl",
+                              "../shaders/core/fshader_blur.glsl");
+    prog_bloom  = makeProgram("../shaders/core/vshader_quad.glsl",
+                              "../shaders/core/fshader_bloom.glsl");
 
     blur_horiz_loc = glGetUniformLocation(prog_blur,  "uHorizontal");
     bloom_scene_loc= glGetUniformLocation(prog_bloom, "uScene");
     bloom_blur_loc = glGetUniformLocation(prog_bloom, "uBloom");
 
     // ── Background programs ───────────────────────────────────────────────────
-    prog_escher = makeProgram("../shaders/vshader_quad.glsl",
-                              "../shaders/fshader_poly_bg_escher.glsl");
+    prog_escher = makeProgram("../shaders/core/vshader_quad.glsl",
+                              "../shaders/backgrounds/fshader_poly_bg_escher.glsl");
     esch_eye_loc    = glGetUniformLocation(prog_escher, "uEyePos");
     esch_right_loc  = glGetUniformLocation(prog_escher, "uCamRight");
     esch_up_loc     = glGetUniformLocation(prog_escher, "uCamUp");
@@ -206,8 +206,8 @@ void polygon_bg_init()
     esch_time_loc   = glGetUniformLocation(prog_escher, "uTime");
     esch_aspect_loc = glGetUniformLocation(prog_escher, "uAspect");
 
-    prog_mandelbulb = makeProgram("../shaders/vshader_quad.glsl",
-                                  "../shaders/fshader_poly_bg_mandelbulb.glsl");
+    prog_mandelbulb = makeProgram("../shaders/core/vshader_quad.glsl",
+                                  "../shaders/backgrounds/fshader_poly_bg_mandelbulb.glsl");
     bulb_eye_loc    = glGetUniformLocation(prog_mandelbulb, "uEyePos");
     bulb_right_loc  = glGetUniformLocation(prog_mandelbulb, "uCamRight");
     bulb_up_loc     = glGetUniformLocation(prog_mandelbulb, "uCamUp");
@@ -215,8 +215,8 @@ void polygon_bg_init()
     bulb_time_loc   = glGetUniformLocation(prog_mandelbulb, "uTime");
     bulb_aspect_loc = glGetUniformLocation(prog_mandelbulb, "uAspect");
 
-    prog_gyroid = makeProgram("../shaders/vshader_quad.glsl",
-                              "../shaders/fshader_poly_bg_gyroid.glsl");
+    prog_gyroid = makeProgram("../shaders/core/vshader_quad.glsl",
+                              "../shaders/backgrounds/fshader_poly_bg_gyroid.glsl");
     gyro_eye_loc    = glGetUniformLocation(prog_gyroid, "uEyePos");
     gyro_right_loc  = glGetUniformLocation(prog_gyroid, "uCamRight");
     gyro_up_loc     = glGetUniformLocation(prog_gyroid, "uCamUp");
@@ -224,8 +224,8 @@ void polygon_bg_init()
     gyro_time_loc   = glGetUniformLocation(prog_gyroid, "uTime");
     gyro_aspect_loc = glGetUniformLocation(prog_gyroid, "uAspect");
 
-    prog_menger = makeProgram("../shaders/vshader_quad.glsl",
-                              "../shaders/fshader_poly_bg_menger.glsl");
+    prog_menger = makeProgram("../shaders/core/vshader_quad.glsl",
+                              "../shaders/backgrounds/fshader_poly_bg_menger.glsl");
     mng_eye_loc    = glGetUniformLocation(prog_menger, "uEyePos");
     mng_right_loc  = glGetUniformLocation(prog_menger, "uCamRight");
     mng_up_loc     = glGetUniformLocation(prog_menger, "uCamUp");

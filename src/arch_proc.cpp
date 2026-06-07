@@ -66,8 +66,8 @@ static GLint  halo_falloffLoc = -1;
 
 static void halo_init()
 {
-    halo_program = InitShader("../shaders/vshader_halo.glsl",
-                              "../shaders/fshader_halo.glsl");
+    halo_program = InitShader("../shaders/core/vshader_halo.glsl",
+                              "../shaders/core/fshader_halo.glsl");
     halo_baseLoc    = glGetUniformLocation(halo_program, "uBaseColor");
     halo_colorLoc   = glGetUniformLocation(halo_program, "uHaloColor");
     halo_centerLoc  = glGetUniformLocation(halo_program, "uHaloCenter");
@@ -256,8 +256,8 @@ static int build_uv_sphere(std::vector<vec3>& out, int stacks, int slices)
 void archp_init()
 {
     g_shape.init("../models/impossible_arch_curved.obj", arch_proc_palette(),
-                 "../shaders/vshader_iridescent.glsl",
-                 "../shaders/fshader_iridescent.glsl");
+                 "../shaders/objects/vshader_iridescent.glsl",
+                 "../shaders/objects/fshader_iridescent.glsl");
 
     g_shape.angleX        = 25.0f;
     g_shape.angleY        = 60.0f;
@@ -272,8 +272,8 @@ void archp_init()
             256, 256, env_max_mip + 1);
 
     // ── Skybox program + cube VAO ───────────────────────────────────────
-    sky_program  = InitShader("../shaders/vshader_skybox.glsl",
-                              "../shaders/fshader_skybox.glsl");
+    sky_program  = InitShader("../shaders/backgrounds/vshader_skybox.glsl",
+                              "../shaders/backgrounds/fshader_skybox.glsl");
     sky_viewLoc  = glGetUniformLocation(sky_program, "view");
     sky_projLoc  = glGetUniformLocation(sky_program, "projection");
     sky_rotLoc   = glGetUniformLocation(sky_program, "uSkyboxRotation");

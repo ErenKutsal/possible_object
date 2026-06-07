@@ -23,8 +23,8 @@ static GLint   bg_amountLoc  = -1;
 
 static void bg_init()
 {
-    bg_program  = InitShader("../shaders/vshader_halo.glsl",
-                             "../shaders/fshader_clockwork_bg.glsl");
+    bg_program  = InitShader("../shaders/core/vshader_halo.glsl",
+                             "../shaders/backgrounds/fshader_clockwork_bg.glsl");
     bg_baseLoc   = glGetUniformLocation(bg_program, "uBaseColor");
     bg_timeLoc   = glGetUniformLocation(bg_program, "uTime");
     bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");
@@ -63,7 +63,7 @@ static ObjColorPalette obsidian_palette()
 
 void penrose_block_init()
 {
-    g_shape.init("../models/penrose_stair.obj", obsidian_palette(), nullptr, "../shaders/fshader_kintsugi.glsl");
+    g_shape.init("../models/penrose_stair.obj", obsidian_palette(), nullptr, "../shaders/objects/fshader_kintsugi.glsl");
 
     // Warm golden key light to accent the obsidian and gold
     g_shape.setCustomLight(vec3(0.35f, 0.65f, 0.45f));
