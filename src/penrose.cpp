@@ -40,23 +40,19 @@ void penrose_init()
     // (-5,-5,-5) → (5,5,5) — both world points project to iso (0, 0), so
     // the jump is invisible at the magic angle.
     //
-    // Path traverses the loop in 5 segments:
-    //   A → B   Y-bar 1     (5,5,5) → (5,0,5)
-    //   B → C   Z-bar       (5,0,5) → (5,0,-5)
-    //   C → D   X-bar       (5,0,-5) → (-5,0,-5)
-    //   D → E   Y-bar 2     (-5,0,-5) → (-5,-5,-5)
-    //   E → A   impossible  (-5,-5,-5) → (5,5,5)  (invisible at iso angle)
-    //
-    // Each segment's "up" is the iso-axis component perpendicular to the
-    // bar axis — that's the face visible to the iso camera, so the ball
-    // rests on the bar's outward-facing edge.
+    // Path traverses the outer surface of the impossible loop:
+    //   P_mid_front -> P_top        Y-bar 1 (upper half of vertical bar)
+    //   P_top -> P_left             Z-bar (left diagonal bar)
+    //   P_left -> P_bottom          X-bar (bottom diagonal bar)
+    //   P_bottom -> P_mid_back      Y-bar 2 (lower half of vertical bar)
+    //   P_mid_back -> P_mid_front   impossible teleport jump (invisible, both project to screen (0, 0.668))
     g_shape.setBallPath({
-        { vec3( 5.0f,  5.0f,  5.0f), vec3(1.0f, 0.0f, 1.0f) },  // A: Y-bar 1 up (perp to Y)
-        { vec3( 5.0f,  0.0f,  5.0f), vec3(1.0f, 1.0f, 0.0f) },  // B: Z-bar up (perp to Z)
-        { vec3( 5.0f,  0.0f, -5.0f), vec3(0.0f, 1.0f, 1.0f) },  // C: X-bar up (perp to X)
-        { vec3(-5.0f,  0.0f, -5.0f), vec3(1.0f, 0.0f, 1.0f) },  // D: Y-bar 2 up
-        { vec3(-5.0f, -5.0f, -5.0f), vec3(1.0f, -1.0f, 0.0f) }, // E: impossible-jump up (any perp to iso)
-    }, /*thickness=*/1.0f, /*ballRadius=*/0.45f);
+        { vec3( 5.818f,  5.818f,  5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Front bar center (P_mid_front)
+        { vec3( 5.818f,  0.0f,    5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Top corner (P_top)
+        { vec3( 5.818f,  0.0f,   -5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Left corner (P_left)
+        { vec3(-5.818f,  0.0f,   -5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Bottom corner (P_bottom)
+        { vec3(-5.818f, -5.818f, -5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Back bar center (P_mid_back)
+    }, /*thickness=*/0.0f, /*ballRadius=*/0.45f);
 }
 void penrose_display() { g_shape.display(); }
 void penrose_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }

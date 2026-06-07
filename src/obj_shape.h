@@ -88,6 +88,7 @@ struct ObjShape
         float length;
         vec3  forward;     // (end-start)/length
         vec3  right;       // cross(forward, up) — local +y (outer side of bar)
+        bool  isTeleport = false;
     };
     std::vector<PathSegment> ballPath;
     float ballPathTotalLength = 0.0f;
@@ -302,8 +303,11 @@ struct ObjShape
             s.length  = len;
             s.forward = fwd;
             s.right   = right;
+            s.isTeleport = (fabsf(fwd.x - fwd.y) < 1e-3f && fabsf(fwd.y - fwd.z) < 1e-3f);
             ballPath.push_back(s);
-            ballPathTotalLength += len;
+            if (!s.isTeleport) {
+                ballPathTotalLength += len;
+            }
         }
 
         // One-time sphere mesh generation (lazy: only when a slot opts in to
@@ -359,6 +363,29 @@ struct ObjShape
     vec3 ballPositionFromSU() const
     {
         if (ballPath.empty()) return vec3(0,0,0);
+
+        // If thickness is 0, bypass the offset calculations and use the centerline directly.
+        if (ballThickness == 0.0f) {
+            float s_arc = ball_s * ballPathTotalLength;
+            const PathSegment* seg = nullptr;
+            float prev = 0.0f;
+            for (size_t i = 0; i < ballPath.size(); ++i) {
+                if (ballPath[i].isTeleport) continue;
+                if (!seg) seg = &ballPath[i];
+                if (s_arc < prev + ballPath[i].length) { seg = &ballPath[i]; break; }
+                prev += ballPath[i].length;
+                seg = &ballPath[i];
+            }
+            if (!seg) return vec3(0,0,0);
+            float seg_t = (s_arc - prev) / seg->length;
+            if (seg_t < 0) seg_t = 0; if (seg_t > 1) seg_t = 1;
+
+            return vec3(
+                seg->start.x + seg_t * (seg->end.x - seg->start.x),
+                seg->start.y + seg_t * (seg->end.y - seg->start.y),
+                seg->start.z + seg_t * (seg->end.z - seg->start.z));
+        }
+
         // Find which segment ball_s lands on.
         float s_arc = ball_s * ballPathTotalLength;
         const PathSegment* seg = &ballPath[0];
