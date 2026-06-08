@@ -2,6 +2,7 @@
 #include "includes.h"
 #include "neckercube.h"
 #include "penrose.h"
+#include "penrose_mirror.h"
 #include "ui.h"
 
 int screen_w, screen_h;  // Screen Attributes
@@ -9,6 +10,13 @@ int screen_w, screen_h;  // Screen Attributes
 // ─── Forward decls — modules without their own headers ──────────────────────
 
 // OBJ-loaded modules
+void penrose_m_init();
+void penrose_m_display();
+void penrose_m_mouseButtonCallback(GLFWwindow*, int, int, int);
+void penrose_m_cursorPosCallback(GLFWwindow*, double, double);
+void penrose_m_scrollCallback(GLFWwindow*, double, double);
+void penrose_m_keyCallback(GLFWwindow*, int, int, int, int);
+
 void arch_init();
 void arch_display();
 void arch_mouseButtonCallback(GLFWwindow*, int, int, int);
@@ -48,7 +56,7 @@ void archp_scrollCallback(GLFWwindow*, double, double);
 void archp_keyCallback(GLFWwindow*, int, int, int, int);
 
 // ─── Shape registry ─────────────────────────────────────────────────────────
-const int NUM_OBJECTS = 8;
+const int NUM_OBJECTS = 9;
 const char* object_names[NUM_OBJECTS] = {
     "Impossible Polygon",         // 0 — procedural (parametric n-gon)
     "Penrose Triangle",           // 1 — OBJ
@@ -58,6 +66,7 @@ const char* object_names[NUM_OBJECTS] = {
     "Impossible Arch (round)",    // 5 — Paradox arch sphere-cast to bend bars
     "Penrose Stair",              // 6 — OBJ
     "Reutersvard Rectangle",      // 7 — OBJ
+    "Penrose Sliding Ball",       // 8
 };
 
 int current_object = 0;
@@ -92,6 +101,9 @@ static void key_for(int slot, GLFWwindow* w, int k, int s, int a, int m)
         case 7:
             reutersvard_keyCallback(w, k, s, a, m);
             break;
+        case 8:
+            penrose_m_keyCallback(w, k, s, a, m);
+            break;
     }
 }
 static void mouse_for(int slot, GLFWwindow* w, int b, int a, int m)
@@ -121,6 +133,9 @@ static void mouse_for(int slot, GLFWwindow* w, int b, int a, int m)
             break;
         case 7:
             reutersvard_mouseButtonCallback(w, b, a, m);
+            break;
+        case 8:
+            penrose_m_mouseButtonCallback(w, b, a, m);
             break;
     }
 }
@@ -152,6 +167,9 @@ static void cursor_for(int slot, GLFWwindow* w, double x, double y)
         case 7:
             reutersvard_cursorPosCallback(w, x, y);
             break;
+        case 8:
+            penrose_m_cursorPosCallback(w, x, y);
+            break;
     }
 }
 static void scroll_for(int slot, GLFWwindow* w, double x, double y)
@@ -178,6 +196,9 @@ static void scroll_for(int slot, GLFWwindow* w, double x, double y)
             break;
         case 7:
             reutersvard_scrollCallback(w, x, y);
+            break;
+        case 8:
+            penrose_m_scrollCallback(w, x, y);
             break;
         default:
             break;
@@ -210,6 +231,9 @@ static void display_for(int slot)
             break;
         case 7:
             reutersvard_display();
+            break;
+        case 8:
+            penrose_m_display();
             break;
     }
 }
@@ -274,6 +298,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             target = 6;
         else if (key == GLFW_KEY_8)
             target = 7;
+        else if (key == GLFW_KEY_9)
+            target = 8;
         if (target != -1)
         {
             current_object = target;
@@ -306,6 +332,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             target = 6;
         else if (key == GLFW_KEY_8)
             target = 7;
+        else if (key == GLFW_KEY_9)
+            target = 8;
 
         if (target != -1)
         {
@@ -384,6 +412,7 @@ int main()
     reutersvard_init();
     pbp_init();
     archp_init();
+    penrose_m_init();
 
     ui_init(window);
 
