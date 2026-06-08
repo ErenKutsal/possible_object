@@ -24,7 +24,7 @@ add_compile_definitions(SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders/")
 
 include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/shaders)
 
-add_executable(imposible.out src/main.cpp src/impossible_polygon.cpp src/penrose.cpp src/neckercube.cpp src/penrose_blocks.cpp src/arch.cpp "src/penrose_mirror.cpp" "src/penrose_mirror.h" "src/impossible_shape.h" "src/impossible_shape.cpp")
+add_executable(imposible.out src/main.cpp src/impossible_polygon.cpp src/penrose.cpp src/neckercube.cpp src/penrose_blocks.cpp src/arch.cpp "src/penrose_mirror.cpp" "src/penrose_mirror.h"  )
 
 if(APPLE)
     # Mac linking (No GLEW required)

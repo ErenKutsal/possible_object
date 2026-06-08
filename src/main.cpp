@@ -3,7 +3,6 @@
 #include "neckercube.h"
 #include "penrose.h"
 #include "penrose_mirror.h"
-#include "impossible_shape.h"
 
 const int NUM_OBJECTS = 7;
 const char* object_names[NUM_OBJECTS] = {"Impossible Polygon", "Penrose Triangle", "Impossible Cube", "Penrose Blocks",
@@ -37,8 +36,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
             target = 4;
         else if (key == GLFW_KEY_6)
             target = 5;
-        else if (key == GLFW_KEY_7)
-            target = 6;
 
         if (target != -1)
         {
@@ -73,10 +70,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     {
         penrose_m_keyCallback(window, key, scancode, action, mods);
     }
-    else if (current_object == 6)
-    {
-        impossible_keyCallback(window, key, scancode, action, mods);
-    }
 }
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -93,8 +86,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         arch_mouseButtonCallback(window, button, action, mods);
     else if (current_object == 5)
         penrose_m_mouseButtonCallback(window, button, action, mods);
-    else if (current_object == 6)
-        impossible_mouseButtonCallback(window, button, action, mods);
 }
 
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
@@ -111,8 +102,6 @@ void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
         arch_cursorPosCallback(window, xpos, ypos);
     else if (current_object == 5)
         penrose_m_cursorPosCallback(window, xpos, ypos);
-    else if (current_object == 6)
-        impossible_cursorPosCallback(window, xpos, ypos);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
@@ -127,8 +116,6 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
         arch_scrollCallback(window, xoffset, yoffset);
     else if (current_object == 5)
         penrose_m_scrollCallback(window, xoffset, yoffset);
-    else if (current_object == 6)
-        impossible_scrollCallback(window, xoffset, yoffset);
 }
 
 // =============================================
@@ -170,7 +157,6 @@ int main()
     penrose_block_init();
     arch_init();
     penrose_m_init();
-    impossible_init();
 
     glClearColor(0.75f, 0.78f, 0.80f, 1.0f);  // light teal background
     glEnable(GL_DEPTH_TEST);
@@ -208,8 +194,6 @@ int main()
             arch_display();
         else if (current_object == 5)
             penrose_m_display();
-        else if (current_object == 6)
-            impossible_display();
 
         glfwSwapBuffers(window);
     }
