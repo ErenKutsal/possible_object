@@ -18,8 +18,7 @@ static GLint   bg_amountLoc  = -1;
 
 static void bg_init()
 {
-    bg_program  = InitShader("../shaders/core/vshader_halo.glsl",
-                             "../shaders/backgrounds/fshader_water_background.glsl");
+    bg_program  = InitShader(SHADER_DIR "vshader_halo.glsl", SHADER_DIR "fshader_water_background.glsl");
     bg_baseLoc   = glGetUniformLocation(bg_program, "uBaseColor");
     bg_timeLoc   = glGetUniformLocation(bg_program, "uTime");
     bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");
@@ -58,7 +57,7 @@ static ObjColorPalette water_palette()
 void reutersvard_init()
 {
     g_shape.init("../models/reutersvard_rectangle.obj", water_palette(),
-                 nullptr, "../shaders/objects/fshader_water.glsl");
+                 nullptr, SHADER_DIR "fshader_water.glsl");
 
     g_shape.setCustomLight(vec3(0.45f, 0.60f, 0.70f));
     g_shape.setCustomLightColor(vec3(0.40f, 0.74f, 1.00f));

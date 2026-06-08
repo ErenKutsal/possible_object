@@ -16,8 +16,7 @@ static GLint   bg_amountLoc        = -1;
 static void bg_init()
 {
     // Reuses the fullscreen quad vertex shader with our new earth background fragment shader
-    bg_program = InitShader("../shaders/core/vshader_halo.glsl",
-                            "../shaders/backgrounds/fshader_earth_background.glsl");
+    bg_program = InitShader(SHADER_DIR "vshader_halo.glsl", SHADER_DIR "fshader_earth_background.glsl");
     bg_baseLoc   = glGetUniformLocation(bg_program, "uBaseColor");
     bg_timeLoc   = glGetUniformLocation(bg_program, "uTime");
     bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");
@@ -58,7 +57,7 @@ static ObjColorPalette earth_palette()
 void cube_init()
 {
     // Load mesh using the earth palette and our dedicated earth fragment shader
-    g_shape.init("../models/impossible_cube.obj", earth_palette(), nullptr, "../shaders/objects/fshader_earth.glsl");
+    g_shape.init("../models/impossible_cube.obj", earth_palette(), nullptr, SHADER_DIR "fshader_earth.glsl");
 
     // Warm golden-green light direction and color (triggers earth shader branch)
     g_shape.setCustomLight(vec3(0.30f, 0.80f, 0.52f));

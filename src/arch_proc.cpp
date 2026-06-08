@@ -66,8 +66,7 @@ static GLint  halo_falloffLoc = -1;
 
 static void halo_init()
 {
-    halo_program = InitShader("../shaders/core/vshader_halo.glsl",
-                              "../shaders/core/fshader_halo.glsl");
+    halo_program = InitShader(SHADER_DIR"vshader_halo.glsl", SHADER_DIR "fshader_halo.glsl");
     halo_baseLoc    = glGetUniformLocation(halo_program, "uBaseColor");
     halo_colorLoc   = glGetUniformLocation(halo_program, "uHaloColor");
     halo_centerLoc  = glGetUniformLocation(halo_program, "uHaloCenter");
