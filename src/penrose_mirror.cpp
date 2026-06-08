@@ -9,7 +9,7 @@ GLuint penrose_mirrorStyleLoc;
 GLuint penrose_mirrorTimeLoc;
 
 // ============================================================
-// Shared geometry from penrose.cpp
+// Shared geometry from penrose_1.cpp
 // ============================================================
 extern GLuint penrose_shaderProgram;
 extern GLuint penrose_vao;
@@ -271,7 +271,7 @@ static vec3 sampleBallPath(float t, int& passOut)
 // ============================================================
 void penrose_m_init()
 {
-    penrose_mirrorProgram = InitShader(SHADER_DIR "vshader_mirror.glsl", SHADER_DIR "fshader_mirror.glsl");
+    penrose_mirrorProgram = InitShader(SHADER_DIR "core/vshader_mirror.glsl", SHADER_DIR "core/fshader_mirror.glsl");
 
     penrose_mirrorStyleLoc = glGetUniformLocation(penrose_mirrorProgram, "u_ballStyle");
     penrose_mirrorTimeLoc = glGetUniformLocation(penrose_mirrorProgram, "u_time");

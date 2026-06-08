@@ -44,7 +44,7 @@ add_library(imgui_lib STATIC
     ${imgui_SOURCE_DIR}/imgui_widgets.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
     ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-)
+ "src/penrose.cpp" "src/penrose.h")
 target_include_directories(imgui_lib PUBLIC
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
@@ -52,7 +52,6 @@ target_include_directories(imgui_lib PUBLIC
 target_link_libraries(imgui_lib PUBLIC glfw OpenGL::GL)
 
 add_compile_definitions(SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders/")
-
 include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/shaders)
 
 add_executable(
@@ -61,7 +60,7 @@ add_executable(
     src/impossible_polygon.cpp
     src/polygon_bg.cpp          # Bloom pipeline + interactive backgrounds (slot 0)
     # OBJ-loaded shapes (slots 1-5, 0-indexed 1-5)
-    src/penrose.cpp
+    src/penrose_1.cpp
     src/neckercube.cpp
     src/penrose_blocks.cpp
     src/arch.cpp
@@ -72,6 +71,7 @@ add_executable(
     src/arch_proc.cpp
     src/ui.cpp
     src/penrose_mirror.cpp
+    src/penrose.cpp
 )
 
 if(APPLE)

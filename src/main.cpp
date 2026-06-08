@@ -1,7 +1,8 @@
 #include "impossible_polygon.h"
 #include "includes.h"
 #include "neckercube.h"
-#include "penrose.h"
+//#include "penrose.h"
+#include "penrose_1.h"
 #include "penrose_mirror.h"
 #include "ui.h"
 

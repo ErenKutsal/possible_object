@@ -348,7 +348,7 @@ void polygon_init()
 
     polygon_create_solid_segment(num_segments, radius, POLYGON_BAR_THICKNESS * scale_factor);
 
-    program = InitShader(SHADER_DIR "vshader_new.glsl", SHADER_DIR "fshader_new.glsl");
+    program = InitShader(SHADER_DIR "objects/vshader_new.glsl", SHADER_DIR "objects/fshader_new.glsl");
     glUseProgram(program);
 
     GLint vert_ok, frag_ok, link_ok;

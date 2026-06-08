@@ -24,8 +24,8 @@ static GLint   bg_amountLoc  = -1;
 
 static void bg_init()
 {
-    bg_program  = InitShader(SHADER_DIR "vshader_halo.glsl",
-        SHADER_DIR "fshader_crystal_background.glsl");
+    bg_program  = InitShader(SHADER_DIR "core/vshader_halo.glsl",
+        SHADER_DIR "backgrounds/fshader_crystal_background.glsl");
     bg_baseLoc   = glGetUniformLocation(bg_program, "uBaseColor");
     bg_timeLoc   = glGetUniformLocation(bg_program, "uTime");
     bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");
@@ -69,8 +69,8 @@ void pbp_init()
     // Use the dedicated crystal shader so uPostSolveTime triggers the radial
     // shatter.  The blue-dominant light tint activates the "electric" gate
     // inside the shader (uLightColor.b >> uLightColor.r/g).
-    g_shape.init("../models/penrose_blocks.obj", crystal_palette(),
-                 nullptr, "../shaders/objects/fshader_crystal.glsl");
+    g_shape.init(SHADER_DIR"../models/penrose_blocks.obj", crystal_palette(),
+                 nullptr, SHADER_DIR"objects/fshader_crystal.glsl");
 
     // Electric blue-white key light — strong blue channel activates the gate
     g_shape.setCustomLight(vec3(0.35f, 0.55f, 0.85f));
