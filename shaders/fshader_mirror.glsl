@@ -41,6 +41,17 @@ void main()
     vec3 H1 = normalize(L1 + V);
     vec3 H2 = normalize(L2 + V);
 
+    // ---- 2 = chrome steel ball ----
+    if (u_ballStyle == 2) {
+        float s1 = pow(max(dot(N, H1), 0.0), 120.0);
+        float s2 = pow(max(dot(N, H2), 0.0), 60.0) * 0.5;
+        vec3 spec = vec3(s1 + s2) * 1.5;
+        vec3 color = env;
+        color += spec;
+        fragColor = vec4(color, 1.0);
+        return;
+    }
+
     // ---- 5 = rainbow / iridescent ----
     if (u_ballStyle == 5) {
         float s1 = pow(max(dot(N, H1), 0.0), 90.0);

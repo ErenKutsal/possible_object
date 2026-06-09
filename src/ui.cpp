@@ -21,7 +21,7 @@ static const char* LEVEL_THEMES[LEVEL_COUNT] = {
     "Lava",     // 4 — Impossible Arch (generative rock + lava + halo)
     "Metallic", // 5 — Impossible Arch (round, anisotropic chrome)
     "—",        // 6 — placeholder
-    "—",        // 7 — placeholder
+    "Minimal",  // 7 — Reutersvard Rectangle
 };
 
 static const char* LEVEL_NAMES[LEVEL_COUNT] = {
@@ -46,7 +46,7 @@ static const ImVec4 LEVEL_TINTS[LEVEL_COUNT] = {
     ImVec4(0.96f, 0.50f, 0.18f, 1.0f),  // 4 — Lava: warm ember orange (matches the halo)
     ImVec4(0.80f, 0.85f, 0.92f, 1.0f),  // 5 — Metallic: cool brushed-chrome silver
     ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 6 — placeholder cream
-    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 7 — placeholder cream
+    ImVec4(0.00f, 0.85f, 1.00f, 1.0f),  // 7 — Minimal: neon cyan matching tracing lines
 };
 
 // ── Landing background image (Escher-style impossible architecture) ──────

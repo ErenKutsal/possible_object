@@ -44,6 +44,7 @@ struct ObjShape
     float externalSkyboxRotation = 0.0f;
     void setSkyboxRotation(float r) { externalSkyboxRotation = r; }
     bool isSolved() const { return solvePhase == SolvePhase::Locked; }
+    bool allowLockedOrbit = false;
 
     // Optional override for the direct light's world position. The default
     // (eye-relative) is used when useCustomLight is false. Slot 6 enables
@@ -157,6 +158,7 @@ struct ObjShape
     bool key_s_held = false, key_d_held = false;
     double last_wasd_input_time = 0.0;
     float ball_s = 0.0f;
+    float ballStartS = 0.0f;
     float ball_u = 1.5f;
     static constexpr float BALL_S_SPEED = 0.18f;  // loops per second (slower for OBJ scale)
     static constexpr float BALL_U_SPEED = 1.30f;  // perimeter units per second
@@ -370,10 +372,7 @@ struct ObjShape
             s.right = right;
             s.isTeleport = (fabsf(fwd.x - fwd.y) < 1e-3f && fabsf(fwd.y - fwd.z) < 1e-3f);
             ballPath.push_back(s);
-            if (!s.isTeleport)
-            {
-                ballPathTotalLength += len;
-            }
+            ballPathTotalLength += len;
         }
 
         // One-time sphere mesh generation (lazy: only when a slot opts in to
@@ -436,45 +435,12 @@ struct ObjShape
         glBindVertexArray(0);
     }
 
-    // Convert (ball_s, ball_u) → world OBJ-space position. Uses arc-length
-    // parameterisation along ballPath (closed loop), and the per-segment
-    // (up, right) frame for cross-section offset.
-    vec3 ballPositionFromSU() const
+    const PathSegment* getSegmentAtS(float s, float& out_seg_t) const
     {
-        if (ballPath.empty()) return vec3(0, 0, 0);
-
-        // If thickness is 0, bypass the offset calculations and use the centerline directly.
-        if (ballThickness == 0.0f)
-        {
-            float s_arc = ball_s * ballPathTotalLength;
-            const PathSegment* seg = nullptr;
-            float prev = 0.0f;
-            for (size_t i = 0; i < ballPath.size(); ++i)
-            {
-                if (ballPath[i].isTeleport) continue;
-                if (!seg) seg = &ballPath[i];
-                if (s_arc < prev + ballPath[i].length)
-                {
-                    seg = &ballPath[i];
-                    break;
-                }
-                prev += ballPath[i].length;
-                seg = &ballPath[i];
-            }
-            if (!seg) return vec3(0, 0, 0);
-            float seg_t = (s_arc - prev) / seg->length;
-            if (seg_t < 0) seg_t = 0;
-            if (seg_t > 1) seg_t = 1;
-
-            return vec3(seg->start.x + seg_t * (seg->end.x - seg->start.x),
-                        seg->start.y + seg_t * (seg->end.y - seg->start.y),
-                        seg->start.z + seg_t * (seg->end.z - seg->start.z));
-        }
-
-        // Find which segment ball_s lands on.
-        float s_arc = ball_s * ballPathTotalLength;
-        const PathSegment* seg = &ballPath[0];
+        if (ballPath.empty()) return nullptr;
+        float s_arc = s * ballPathTotalLength;
         float prev = 0.0f;
+        const PathSegment* seg = &ballPath[0];
         for (size_t i = 0; i < ballPath.size(); ++i)
         {
             if (s_arc < prev + ballPath[i].length)
@@ -486,8 +452,30 @@ struct ObjShape
             seg = &ballPath[i];
         }
         float seg_t = (s_arc - prev) / seg->length;
-        if (seg_t < 0) seg_t = 0;
-        if (seg_t > 1) seg_t = 1;
+        if (seg_t < 0.0f) seg_t = 0.0f;
+        if (seg_t > 1.0f) seg_t = 1.0f;
+        out_seg_t = seg_t;
+        return seg;
+    }
+
+    // Convert (ball_s, ball_u) → world OBJ-space position. Uses arc-length
+    // parameterisation along ballPath (closed loop), and the per-segment
+    // (up, right) frame for cross-section offset.
+    vec3 ballPositionFromSU() const
+    {
+        if (ballPath.empty()) return vec3(0, 0, 0);
+
+        float seg_t = 0.0f;
+        const PathSegment* seg = getSegmentAtS(ball_s, seg_t);
+        if (!seg) return vec3(0, 0, 0);
+
+        // If thickness is 0, bypass the offset calculations and use the centerline directly.
+        if (ballThickness == 0.0f)
+        {
+            return vec3(seg->start.x + seg_t * (seg->end.x - seg->start.x),
+                        seg->start.y + seg_t * (seg->end.y - seg->start.y),
+                        seg->start.z + seg_t * (seg->end.z - seg->start.z));
+        }
 
         // Centerline point along this segment.
         vec3 center(seg->start.x + seg_t * (seg->end.x - seg->start.x),
@@ -557,7 +545,7 @@ struct ObjShape
         if (solvePhase != SolvePhase::Locked)
         {
             // While unsolved or animating: ball idle at start of path.
-            ball_s = 0.0f;
+            ball_s = ballStartS;
             ball_u = 1.5f;  // top-outer-ish default
             return;
         }
@@ -567,18 +555,68 @@ struct ObjShape
         if (key_d_held) u_input += 1.0f;
         if (key_a_held) u_input -= 1.0f;
 
+        float speed_multiplier = 1.0f;
+        float dummy_seg_t = 0.0f;
+        const PathSegment* seg = getSegmentAtS(ball_s, dummy_seg_t);
+        bool skip_teleport = false;
+
+        if (seg && seg->isTeleport)
+        {
+            float misalignment = isoAxisMisalignmentDeg();
+            if (misalignment < 1.0f)
+            {
+                skip_teleport = true;
+            }
+            else if (misalignment > 8.0f)
+            {
+                speed_multiplier = 3.5f; // Smooth glide when orbited
+            }
+            else
+            {
+                float t = (misalignment - 1.0f) / 7.0f;
+                speed_multiplier = 500.0f - (500.0f - 3.5f) * t;
+            }
+        }
+
         if (s_input != 0.0f || u_input != 0.0f)
         {
-            ball_s += s_input * BALL_S_SPEED * delta_time;
+            ball_s += s_input * BALL_S_SPEED * delta_time * speed_multiplier;
             ball_u += u_input * BALL_U_SPEED * delta_time;
         }
         else
         {
             double now = glfwGetTime();
-            if (now - last_wasd_input_time > (double)IDLE_DRIFT_THRESHOLD_SEC) ball_s += BALL_S_SPEED * delta_time;
+            if (now - last_wasd_input_time > (double)IDLE_DRIFT_THRESHOLD_SEC) ball_s += BALL_S_SPEED * delta_time * speed_multiplier;
         }
         ball_s -= floorf(ball_s);
         ball_u -= 4.0f * floorf(ball_u * 0.25f);
+
+        if (skip_teleport)
+        {
+            // Find the start of the teleport segment in ball_s range [0, 1]
+            float tele_start = 0.0f;
+            float prev = 0.0f;
+            for (size_t i = 0; i < ballPath.size(); ++i)
+            {
+                if (ballPath[i].isTeleport)
+                {
+                    tele_start = prev / ballPathTotalLength;
+                    break;
+                }
+                prev += ballPath[i].length;
+            }
+
+            // Snap to the ends of the teleport segment depending on input direction
+            if (s_input < 0.0f)
+            {
+                ball_s = tele_start - 1e-4f;
+                if (ball_s < 0.0f) ball_s += 1.0f;
+            }
+            else
+            {
+                ball_s = 0.0f; // wrap to start of Seg 0
+            }
+        }
     }
 
     // ── Quaternion helpers (for ROTATING slerp) ──────────────────────────
@@ -919,27 +957,30 @@ struct ObjShape
 
             case SolvePhase::Locked:
             {
-                // Pin to the LANDED solved pose (S or B) so the bump plays
-                // from that exact pose, free of cursor drift. The end of
-                // ROTATING already sync'd angle X/Y/Z to the right values.
-                if (rotateTargetIsB)
-                {
-                    angleX = 0.0f;
-                    angleY = 180.0f;
-                    angleZ = -90.0f;
-                }
-                else
-                {
-                    angleX = 0.0f;
-                    angleY = 0.0f;
-                    angleZ = 0.0f;
-                }
                 if (isDragging && isoAxisMisalignmentDeg() > UNLOCK_ISO_TOL_DEG)
                 {
                     solvePhase = SolvePhase::None;
                     break;
                 }
                 float lt = (float)((now - phaseStartTime) / LOCK_PULSE_DURATION);
+                if (!allowLockedOrbit || lt < 1.0f)
+                {
+                    // Pin to the LANDED solved pose (S or B) so the bump plays
+                    // from that exact pose, free of cursor drift. The end of
+                    // ROTATING already sync'd angle X/Y/Z to the right values.
+                    if (rotateTargetIsB)
+                    {
+                        angleX = 0.0f;
+                        angleY = 180.0f;
+                        angleZ = -90.0f;
+                    }
+                    else
+                    {
+                        angleX = 0.0f;
+                        angleY = 0.0f;
+                        angleZ = 0.0f;
+                    }
+                }
                 if (lt < 1.0f)
                 {
                     float bump = sinf((float)M_PI * lt) * (1.0f - lt);
@@ -1053,18 +1094,12 @@ struct ObjShape
 
         // Metallic + ball-reflection uniforms (no-op when locs == -1 on other slots)
         if (metallicLoc >= 0) glUniform1f(metallicLoc, metallic ? 1.0f : 0.0f);
+
+        // ── Ball update (if active) ──────────────────────────────────────────
+        float currentBallScale = ballRadiusWorld;
         bool ballActive = (solvePhase == SolvePhase::Locked && !ballPath.empty() && ballVao != 0);
-        if (ballWorldPosLoc >= 0) glUniform3fv(ballWorldPosLoc, 1, &lastBallWorldPos.x);
-        if (ballRadiusLoc >= 0) glUniform1f(ballRadiusLoc, ballActive ? ballRadiusWorld : 0.0f);
-
-        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)positions.size());
-
-        // ── BALL DRAW (only when LOCKED and a path has been set) ───────────
-        // We compute delta_time on the fly from glfwGetTime. This gives the
-        // player WASD-driven motion + idle drift once a path is registered.
-        // Depth test is disabled for the WHOLE ball draw so it always
-        // floats on top of the figure regardless of cuts / corners.
-        if (solvePhase == SolvePhase::Locked && !ballPath.empty() && ballVao != 0)
+        vec3 ball_pos_obj(0.0f, 0.0f, 0.0f);
+        if (ballActive)
         {
             static double last_t = 0.0;
             double tnow = glfwGetTime();
@@ -1073,19 +1108,38 @@ struct ObjShape
             if (dt > 0.1f) dt = 0.1f;  // clamp giant pauses
 
             updateBallFromInput(dt);
-            vec3 ball_pos_obj = ballPositionFromSU();
+            ball_pos_obj = ballPositionFromSU();
 
+            float dummy_seg_t = 0.0f;
+            const PathSegment* seg = getSegmentAtS(ball_s, dummy_seg_t);
+            if (seg && seg->isTeleport)
+            {
+                float gapFactor = sinf(dummy_seg_t * (float)M_PI);
+                currentBallScale = ballRadiusWorld * (1.0f - 0.35f * gapFactor);
+            }
+
+            // Update lastBallWorldPos with the current frame's position (0-frame lag!)
+            vec4 world_ball_pos4 = model * vec4(ball_pos_obj.x, ball_pos_obj.y, ball_pos_obj.z, 1.0f);
+            lastBallWorldPos = vec3(world_ball_pos4.x, world_ball_pos4.y, world_ball_pos4.z);
+        }
+
+        if (ballWorldPosLoc >= 0) glUniform3fv(ballWorldPosLoc, 1, &lastBallWorldPos.x);
+        if (ballRadiusLoc >= 0) glUniform1f(ballRadiusLoc, ballActive ? currentBallScale : 0.0f);
+
+        glDrawArrays(GL_TRIANGLES, 0, (GLsizei)positions.size());
+
+        // ── BALL DRAW (only when LOCKED and a path has been set) ───────────
+        // Depth test is disabled for the WHOLE ball draw so it always
+        // floats on top of the figure regardless of cuts / corners.
+        if (ballActive)
+        {
             // Apply model rotation+scale and translate with a depth shift towards the camera in world space
             // so the ball is drawn in front of the bar it is rolling on (since it is on the centerline),
             // but is still correctly occluded by bars in front of it under GL_DEPTH_TEST.
-            mat4 ballScale = Scale(ballRadiusWorld, ballRadiusWorld, ballRadiusWorld);
+            mat4 ballScale = Scale(currentBallScale, currentBallScale, currentBallScale);
             vec3 viewDir = normalize(eye);
-            vec4 world_ball_pos4 = model * vec4(ball_pos_obj.x, ball_pos_obj.y, ball_pos_obj.z, 1.0f);
-            // Surface pos — right on the bar, used for the reflection uniform in the figure shader.
-            vec3 ball_surface_pos = vec3(world_ball_pos4.x, world_ball_pos4.y, world_ball_pos4.z);
-            lastBallWorldPos = ball_surface_pos;  // reflection computed from the actual surface point
             // Depth-shifted pos — pushed toward camera so the sphere isn't clipped by its own bar.
-            vec3 world_ball_pos = ball_surface_pos + viewDir * (ballRadiusWorld + 0.6f);
+            vec3 world_ball_pos = lastBallWorldPos + viewDir * (currentBallScale + 2.5f);
 
             mat4 rotPartOnly;
             if (solvePhase == SolvePhase::Rotating)

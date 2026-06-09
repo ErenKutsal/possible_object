@@ -104,8 +104,6 @@ double last_mouse_x = 0.0;
 double last_mouse_y = 0.0;
 
 bool is_space_pressed = false;
-float spin_momentum = 0.0f;
-float global_spin_angle = 0.0f;
 float last_frame_time = 0.0f;
 
 // ─── "You solved it!" animation state ───────────────────────────────────────
@@ -446,16 +444,14 @@ void polygon_init()
 // =============================================
 // Ball
 // =============================================
-void display_ball(mat4 viewProj, mat4 global_spin, vec3 local_pos, vec3 ballColor)
+void display_ball(mat4 viewProj, vec3 local_pos, vec3 ballColor)
 {
-    vec4 wbp = global_spin * vec4(local_pos.x, local_pos.y, local_pos.z, 1.0f);
-    vec3 world_ball_pos(wbp.x, wbp.y, wbp.z);
-    glUniform3fv(ball_pos_loc, 1, &world_ball_pos.x);
+    glUniform3fv(ball_pos_loc, 1, &local_pos.x);
 
     mat4 ball_translate =
         Translate(local_pos.x, local_pos.y, local_pos.z) * Scale(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS);
-    mat4 ball_mvp = viewProj * global_spin * ball_translate;
-    mat4 ball_model = global_spin * ball_translate;
+    mat4 ball_mvp = viewProj * ball_translate;
+    mat4 ball_model = ball_translate;
 
     glBindVertexArray(sphere_vao);
     glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &ball_mvp.d[0].x);
@@ -487,8 +483,9 @@ void polygon_display()
     float eye_y = camera_radius * cosf(camera_phi);
     float eye_z = camera_radius * sinf(camera_phi) * sinf(camera_theta);
 
-    vec3 eye(eye_x, eye_y, eye_z);
-    vec3 at(0.0f, 0.0f, 0.0f);
+    float y_offset = 0.15f * scale_factor;
+    vec3 eye(eye_x, eye_y - y_offset, eye_z);
+    vec3 at(0.0f, -y_offset, 0.0f);
     vec3 up(0.0f, 1.0f, 0.0f);
     mat4 view = LookAt(eye, at, up);
 
@@ -505,25 +502,6 @@ void polygon_display()
     if (last_frame_time == 0.0f) last_frame_time = current_time;
     float delta_time = current_time - last_frame_time;
     last_frame_time = current_time;
-
-    float target_speed = 0.0f;
-    if (is_locked)
-    {
-        target_speed = 25.0f;  // Majestic, elegant slow rotation when solved and locked
-    }
-    else if (is_space_pressed)
-    {
-        spin_momentum += 0.4f * delta_time;
-        if (spin_momentum > 1.0f) spin_momentum = 1.0f;
-        target_speed = (spin_momentum * spin_momentum * spin_momentum) * 2000.0f;
-    }
-    else
-    {
-        spin_momentum -= 0.6f * delta_time;
-        if (spin_momentum < 0.0f) spin_momentum = 0.0f;
-        target_speed = (spin_momentum * spin_momentum * spin_momentum) * 2000.0f;
-    }
-    // global_spin_angle += target_speed * delta_time; // I removed spinning for now
 
     // ─── SNAP-TO-SOLVED / LOCK animation ──────────────────────────────────
     // 1. If we're inside the snap animation, ease camera_theta/phi toward
@@ -601,8 +579,6 @@ void polygon_display()
     // every angle (otherwise pure model scale + ortho fight each other).
     mat4 lock_scale_mat = Scale(lock_scale, lock_scale, lock_scale);
 
-    mat4 global_spin =
-        RotateX(global_spin_angle) * RotateY(global_spin_angle * 1.3f) * RotateZ(global_spin_angle * 0.7f);
     mat4 viewProj = proj * view;
 
     // Note: view/proj have to be recomputed since camera_theta/phi changed
@@ -611,23 +587,21 @@ void polygon_display()
         float ex = camera_radius * sinf(camera_phi) * cosf(camera_theta);
         float ey = camera_radius * cosf(camera_phi);
         float ez = camera_radius * sinf(camera_phi) * sinf(camera_theta);
-        eye = vec3(ex, ey, ez);
+        eye = vec3(ex, ey - y_offset, ez);
         view = LookAt(eye, at, up);
         viewProj = proj * view;
     }
 
-    // ── Background bloom pre-pass ──────────────────────────────────────────
-    // begin_scene binds the HDR scene FBO and clears it.  bg_draw renders
-    // the chosen background (camera-aware, no depth write) before the
-    // polygon geometry is drawn into the same FBO.
     polygon_bg_begin_scene();
     {
-        vec3 fwd = normalize(at - eye);  // eye → origin
+        vec3 unshifted_eye(eye.x, eye.y + y_offset, eye.z);
+        vec3 unshifted_at(0.0f, 0.0f, 0.0f);
+        vec3 fwd = normalize(unshifted_at - unshifted_eye);  // unshifted_eye → origin
         vec3 rgt = normalize(cross(fwd, vec3(0, 1, 0)));
         // Guard against degenerate up (camera directly above/below)
         if (rgt.x == 0.0f && rgt.y == 0.0f && rgt.z == 0.0f) rgt = vec3(1, 0, 0);
         vec3 bgUp = normalize(cross(rgt, fwd));
-        polygon_bg_draw(eye, rgt, bgUp, fwd, aspect, current_time, num_segments);
+        polygon_bg_draw(unshifted_eye, rgt, bgUp, fwd, aspect, current_time, num_segments);
     }
     // Restore the polygon's shader program after the background draw changed it.
     glUseProgram(program);
@@ -881,12 +855,11 @@ void polygon_display()
         float bar_t = (float)bar_index / num_segments;
 
         vec3 light_for_this_bar = get_adjusted_ball_pos(zDepth);
-        vec4 wbp = global_spin * vec4(light_for_this_bar.x, light_for_this_bar.y, light_for_this_bar.z, 1.0f);
-        glUniform3fv(ball_pos_loc, 1, &wbp.x);
+        glUniform3fv(ball_pos_loc, 1, &light_for_this_bar.x);
 
         mat4 model = lock_scale_mat * RotateZ(angle) * Translate(0.0f, radius, zDepth);
-        mat4 mvp = viewProj * global_spin * model;
-        mat4 world_model = global_spin * model;
+        mat4 mvp = viewProj * model;
+        mat4 world_model = model;
 
         glBindVertexArray(segment_vao);
         glUniform1i(is_ball_loc, 0);
@@ -908,24 +881,22 @@ void polygon_display()
 
         // Left half — bar 0 LEFT is the "start of the loop" (bar_t = 0).
         vec3 light_l = get_adjusted_ball_pos(zDepth_top);
-        vec4 wbp_l = global_spin * vec4(light_l.x, light_l.y, light_l.z, 1.0f);
-        glUniform3fv(ball_pos_loc, 1, &wbp_l.x);
+        glUniform3fv(ball_pos_loc, 1, &light_l.x);
 
         mat4 model_l = lock_scale_mat * Translate(-L * 0.5f, radius, zDepth_top);
-        mat4 mvp_l = viewProj * global_spin * model_l;
-        mat4 wmodel_l = global_spin * model_l;
+        mat4 mvp_l = viewProj * model_l;
+        mat4 wmodel_l = model_l;
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_l.d[0].x);
         glUniformMatrix4fv(model_loc, 1, GL_FALSE, &wmodel_l.d[0].x);
         draw_bar_tritone();
 
         // Right half — bar 0 RIGHT is the "end of the loop" (bar_t = 1).
         vec3 light_r = get_adjusted_ball_pos(zDepth_bot);
-        vec4 wbp_r = global_spin * vec4(light_r.x, light_r.y, light_r.z, 1.0f);
-        glUniform3fv(ball_pos_loc, 1, &wbp_r.x);
+        glUniform3fv(ball_pos_loc, 1, &light_r.x);
 
         mat4 model_r = lock_scale_mat * Translate(L * 0.5f, radius, zDepth_bot) * RotateZ(180.0f) * RotateX(180.0f);
-        mat4 mvp_r = viewProj * global_spin * model_r;
-        mat4 wmodel_r = global_spin * model_r;
+        mat4 mvp_r = viewProj * model_r;
+        mat4 wmodel_r = model_r;
         glUniformMatrix4fv(mvp_loc, 1, GL_FALSE, &mvp_r.d[0].x);
         glUniformMatrix4fv(model_loc, 1, GL_FALSE, &wmodel_r.d[0].x);
 
@@ -943,7 +914,7 @@ void polygon_display()
     // Ball — only orbits / draws when the polygon is solved + locked.
     // It's the "reward" indicator: solve it, and the little yellow ball runs
     // around the impossible loop, jumping the seam invisibly.
-    if (is_locked) display_ball(viewProj, global_spin, ball_local_pos, ballColor);
+    if (is_locked) display_ball(viewProj, ball_local_pos, ballColor);
 
     // ── Bloom composite: extract bright → Gaussian blur → add to scene ────
     polygon_bg_end_scene();
@@ -1024,8 +995,6 @@ static void polygon_apply_pose_for(int n)
     if (camera_phi < 0.15f) camera_phi = 0.15f;
     if (camera_phi > M_PI - 0.15f) camera_phi = M_PI - 0.15f;
 
-    global_spin_angle = 0.0f;
-    spin_momentum = 0.0f;
     is_dragging = false;
     last_mouse_x = 0.0;
     last_mouse_y = 0.0;
@@ -1073,8 +1042,6 @@ static void polygon_start_snap_animation()
     anim_start_time = (float)glfwGetTime();
     anim_start_theta = camera_theta;
     anim_start_phi = camera_phi;
-    global_spin_angle = 0.0f;
-    spin_momentum = 0.0f;
 }
 
 // Drop out of the locked state — user wants to play with the figure again.
@@ -1144,8 +1111,7 @@ void polygon_key_callback(GLFWwindow* window, int key, int scancode, int action,
         case GLFW_KEY_SPACE:
             // SPACE: tap-to-grow. Adds an edge AND snaps the camera to the
             // new N's per-N unsolved pose — so each new polygon size starts
-            // from its own fresh puzzle position. Hold also keeps the figure
-            // spinning (momentum-based spin from before). Cancels any active
+            // from its own fresh puzzle position. Cancels any active
             // lock — new puzzle, fresh start.
             if (action == GLFW_PRESS)
             {

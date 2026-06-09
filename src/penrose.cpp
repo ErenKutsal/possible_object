@@ -12,6 +12,44 @@
 
 static ObjShape g_shape;
 
+// ── Cyber Grid Background (fades in when finished) ──────────────────────────
+static GLuint  bg_program    = 0;
+static GLuint  bg_vao        = 0;
+static GLuint  bg_vbo        = 0;
+static GLint   bg_baseLoc    = -1;
+static GLint   bg_timeLoc    = -1;
+static GLint   bg_amountLoc  = -1;
+
+static void bg_init()
+{
+    // Reuses the fullscreen quad vertex shader with our new cyber grid fragment shader
+    bg_program = InitShader("../shaders/core/vshader_halo.glsl",
+                            "../shaders/backgrounds/fshader_cyber_grid.glsl");
+    bg_baseLoc   = glGetUniformLocation(bg_program, "uBaseColor");
+    bg_timeLoc   = glGetUniformLocation(bg_program, "uTime");
+    bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");
+
+    // Fullscreen triangle strip — 4 NDC corners.
+    static const float quad[] = {
+        -1.0f, -1.0f,
+         1.0f, -1.0f,
+        -1.0f,  1.0f,
+         1.0f,  1.0f,
+    };
+    glGenVertexArrays(1, &bg_vao);
+    glBindVertexArray(bg_vao);
+    glGenBuffers(1, &bg_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, bg_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+    GLint aPos = glGetAttribLocation(bg_program, "aPos");
+    if (aPos >= 0)
+    {
+        glEnableVertexAttribArray(aPos);
+        glVertexAttribPointer(aPos, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
+    }
+    glBindVertexArray(0);
+}
+
 // Chrome steel palette — near-white with cool blue tint, high contrast between faces
 // so the metallic shader's environment reflections read clearly on each bar.
 static ObjColorPalette continuous_palette()
@@ -29,7 +67,7 @@ static ObjColorPalette continuous_palette()
 
 void penrose_init()
 {
-    g_shape.init("../models/penrose_triangle.obj", continuous_palette());
+    g_shape.init("../models/penrose_triangle.obj", continuous_palette(), nullptr, "../shaders/objects/fshader_penrose_cyber.glsl");
 
     // Penrose Triangle bar layout (from the actual OBJ mesh):
     //   Z-bar at (x=5, y=0, z=-6..+6)         long, along Z axis
@@ -58,8 +96,35 @@ void penrose_init()
         /*thickness=*/0.0f, /*ballRadius=*/0.32f);
     g_shape.useMirrorBall(5);   // 5 = iridescent/rainbow style
     g_shape.setMetallic(true);  // chrome PBR with ball reflection
+    g_shape.ballStartS = 0.12f; // start closer to the top corner on the front bar
+
+    bg_init();
 }
-void penrose_display() { g_shape.display(); }
+void penrose_display()
+{
+    constexpr float REVEAL_DELAY = 0.5f;
+    constexpr float REVEAL_TRACE = 5.0f;
+    float revealT = g_shape.postSolveTime - REVEAL_DELAY;
+    if (revealT < 0.0f) revealT = 0.0f;
+    float amount = revealT / REVEAL_TRACE;
+    if (amount > 1.0f) amount = 1.0f;
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Render the holographic cyber grid background (fades in as amount increases)
+    if (bg_program != 0)
+    {
+        glUseProgram(bg_program);
+        glUniform3f(bg_baseLoc,   0.75f, 0.78f, 0.80f);   // pale slate base
+        glUniform1f(bg_timeLoc,   (float)glfwGetTime());
+        glUniform1f(bg_amountLoc, amount);
+        glBindVertexArray(bg_vao);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindVertexArray(0);
+    }
+
+    g_shape.display();
+}
 void penrose_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }
 void penrose_cursorPosCallback(GLFWwindow*, double x, double y) { g_shape.cursorPos(x, y); }
 void penrose_scrollCallback(GLFWwindow*, double, double y) { g_shape.scroll(y); }
