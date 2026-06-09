@@ -14,14 +14,14 @@
 // Only slots 4 (lava) and 5 (metallic) have finalised themes — the rest are
 // placeholders waiting on a decision. Update once a slot's identity is settled.
 static const char* LEVEL_THEMES[LEVEL_COUNT] = {
-    "—",        // 0 — placeholder
-    "—",        // 1 — placeholder
-    "—",        // 2 — placeholder
-    "—",        // 3 — placeholder
-    "Lava",     // 4 — Impossible Arch (generative rock + lava + halo)
-    "Metallic", // 5 — Impossible Arch (round, anisotropic chrome)
-    "—",        // 6 — placeholder
-    "Minimal",  // 7 — Reutersvard Rectangle
+    "Escher",    // 0 — Impossible Polygon (dynamic backgrounds, jade corridor by default)
+    "Cyber",     // 1 — Penrose Triangle (cyber grid + neon/PBR)
+    "Blueprint", // 2 — Blocked Penrose (Blueprint background + Zero-G decomposition)
+    "Earth",     // 3 — Impossible Cube (earth/moss palette + forest dapple)
+    "Lava",      // 4 — Impossible Arch (generative rock + lava + halo)
+    "Metallic",  // 5 — Impossible Arch (round, anisotropic chrome)
+    "Kintsugi",  // 6 — Penrose Stair (obsidian + liquid gold + clockwork gears)
+    "Minimal",   // 7 — Reutersvard Rectangle
 };
 
 static const char* LEVEL_NAMES[LEVEL_COUNT] = {
@@ -35,17 +35,15 @@ static const char* LEVEL_NAMES[LEVEL_COUNT] = {
     "Reutersvard Rectangle",      // 7 — OBJ
 };
 
-// Tints — only slots 4 and 5 have finalised colours that actually match
-// what the figure does on-screen. Unfinalised slots get a neutral cream so
-// the menu doesn't claim a theme that hasn't been chosen yet.
+// Tints matching what each figure does on-screen.
 static const ImVec4 LEVEL_TINTS[LEVEL_COUNT] = {
-    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 0 — placeholder cream
-    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 1 — placeholder cream
-    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 2 — placeholder cream
-    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 3 — placeholder cream
+    ImVec4(0.20f, 0.80f, 0.45f, 1.0f),  // 0 — Escher: jade-green
+    ImVec4(0.90f, 0.20f, 0.70f, 1.0f),  // 1 — Cyber: neon purple/magenta
+    ImVec4(0.20f, 0.50f, 0.85f, 1.0f),  // 2 — Blueprint: cyan-blue
+    ImVec4(0.48f, 0.35f, 0.27f, 1.0f),  // 3 — Earth: terracotta brown
     ImVec4(0.96f, 0.50f, 0.18f, 1.0f),  // 4 — Lava: warm ember orange (matches the halo)
     ImVec4(0.80f, 0.85f, 0.92f, 1.0f),  // 5 — Metallic: cool brushed-chrome silver
-    ImVec4(0.80f, 0.74f, 0.62f, 1.0f),  // 6 — placeholder cream
+    ImVec4(0.85f, 0.65f, 0.15f, 1.0f),  // 6 — Kintsugi: warm liquid gold
     ImVec4(0.00f, 0.85f, 1.00f, 1.0f),  // 7 — Minimal: neon cyan matching tracing lines
 };
 

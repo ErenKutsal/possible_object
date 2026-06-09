@@ -64,8 +64,6 @@ add_executable(
     # rendered with different proportions / palette / starting pose.
     src/penrose_blocks_proc.cpp
     src/arch_proc.cpp
-    src/penrose_mirror.cpp
-    src/penrose_mirror_base.cpp
     src/ui.cpp
 )
 

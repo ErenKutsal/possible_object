@@ -69,22 +69,6 @@ void penrose_init()
 {
     g_shape.init("../models/penrose_triangle.obj", continuous_palette(), nullptr, "../shaders/objects/fshader_penrose_cyber.glsl");
 
-    // Penrose Triangle bar layout (from the actual OBJ mesh):
-    //   Z-bar at (x=5, y=0, z=-6..+6)         long, along Z axis
-    //   X-bar at (x=-6..+6, y=0, z=-5)        long, along X axis
-    //   Y-bar 1 at (x=5,  y=1..5,  z=5)       short, along Y axis (closes top corner)
-    //   Y-bar 2 at (x=-5, y=-5..-1, z=-5)     short, along Y axis (closes bottom corner)
-    //
-    // The figure is "impossible": the loop closes via a 3D JUMP from
-    // (-5,-5,-5) → (5,5,5) — both world points project to iso (0, 0), so
-    // the jump is invisible at the magic angle.
-    //
-    // Path traverses the outer surface of the impossible loop:
-    //   P_mid_front -> P_top        Y-bar 1 (upper half of vertical bar)
-    //   P_top -> P_left             Z-bar (left diagonal bar)
-    //   P_left -> P_bottom          X-bar (bottom diagonal bar)
-    //   P_bottom -> P_mid_back      Y-bar 2 (lower half of vertical bar)
-    //   P_mid_back -> P_mid_front   impossible teleport jump (invisible, both project to screen (0, 0.668))
     g_shape.setBallPath(
         {
             {vec3(5.818f, 5.818f, 5.818f), vec3(0.0f, 0.0f, 0.0f)},     // Front bar center (P_mid_front)
@@ -97,6 +81,7 @@ void penrose_init()
     g_shape.useMirrorBall(5);   // 5 = iridescent/rainbow style
     g_shape.setMetallic(true);  // chrome PBR with ball reflection
     g_shape.ballStartS = 0.12f; // start closer to the top corner on the front bar
+    g_shape.allowLockedOrbit = true;
 
     bg_init();
 }

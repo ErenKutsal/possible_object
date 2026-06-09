@@ -45,6 +45,7 @@ struct ObjShape
     void setSkyboxRotation(float r) { externalSkyboxRotation = r; }
     bool isSolved() const { return solvePhase == SolvePhase::Locked; }
     bool allowLockedOrbit = false;
+    bool drawBallMesh = false; // default to false (omits the ball mesh), toggleable via B key
 
     // Optional override for the direct light's world position. The default
     // (eye-relative) is used when useCustomLight is false. Slot 6 enables
@@ -1097,7 +1098,7 @@ struct ObjShape
 
         // ── Ball update (if active) ──────────────────────────────────────────
         float currentBallScale = ballRadiusWorld;
-        bool ballActive = (solvePhase == SolvePhase::Locked && !ballPath.empty() && ballVao != 0);
+        bool ballActive = (solvePhase == SolvePhase::Locked && !ballPath.empty() && ballVao != 0 && drawBallMesh);
         vec3 ball_pos_obj(0.0f, 0.0f, 0.0f);
         if (ballActive)
         {
@@ -1131,7 +1132,7 @@ struct ObjShape
         // ── BALL DRAW (only when LOCKED and a path has been set) ───────────
         // Depth test is disabled for the WHOLE ball draw so it always
         // floats on top of the figure regardless of cuts / corners.
-        if (ballActive)
+        if (ballActive && drawBallMesh)
         {
             // Apply model rotation+scale and translate with a depth shift towards the camera in world space
             // so the ball is drawn in front of the bar it is rolling on (since it is on the centerline),
@@ -1240,6 +1241,10 @@ struct ObjShape
         }
 
         if (action != GLFW_PRESS && action != GLFW_REPEAT) return;
+        if (keyCode == GLFW_KEY_B && action == GLFW_PRESS)
+        {
+            drawBallMesh = !drawBallMesh;
+        }
         if (keyCode == GLFW_KEY_LEFT) angleY -= 3.0f;
         if (keyCode == GLFW_KEY_RIGHT) angleY += 3.0f;
         if (keyCode == GLFW_KEY_UP) angleX -= 3.0f;
