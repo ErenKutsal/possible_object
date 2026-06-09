@@ -60,6 +60,21 @@ static float pm_t = 0.0f;   // path parameter [0, 1)
 static const float BALL_RADIUS = 0.05f;  
 static const float BALL_SPEED = 0.00025f;
 
+static bool pm_locked = false;
+static bool pm_anim_snapping = false;
+static double pm_anim_start_time = 0.0;
+static float pm_anim_start_X = 0.0f;
+static float pm_anim_start_Y = 0.0f;
+static float pm_anim_start_Z = 0.0f;
+static double pm_lock_start_time = 0.0;
+
+static float pm_normalizeAngle(float a) {
+    float r = fmodf(a, 360.0f);
+    if (r > 180.0f) r -= 360.0f;
+    if (r < -180.0f) r += 360.0f;
+    return r;
+}
+
 // ============================================================
 // Build a UV sphere
 // ============================================================
@@ -273,6 +288,13 @@ static vec3 sampleBallPath(float t, int& passOut)
 void pm_base_m_init()
 {
     pm_base_init();
+    
+    srand((unsigned)time(NULL));
+    pm_base_angleX = (float)(rand() % 360);
+    pm_base_angleY = (float)(rand() % 360);
+    pm_base_angleZ = (float)(rand() % 360);
+    pm_locked = false;
+    pm_anim_snapping = false;
 
     pm_base_mirrorProgram = InitShader("../shaders/vshader_mirror.glsl", "../shaders/fshader_mirror.glsl");
 
@@ -332,15 +354,81 @@ void pm_base_m_display()
     glUniformMatrix4fv(pm_base_viewPos, 1, GL_FALSE, &view.d[0].x);
     glUniformMatrix4fv(pm_base_projectionPos, 1, GL_FALSE, &projection.d[0].x);
 
-    mat4 R = RotateY(pm_base_angleY) * RotateX(pm_base_angleX) * RotateZ(pm_base_angleZ);
+    double current_time = glfwGetTime();
+
+    if (pm_anim_snapping) {
+        float t = (float)((current_time - pm_anim_start_time) / 0.85f);
+        if (t >= 1.0f) {
+            t = 1.0f;
+            pm_anim_snapping = false;
+            pm_locked = true;
+            pm_lock_start_time = current_time;
+            pm_base_angleX = 0.0f;
+            pm_base_angleY = 0.0f;
+            pm_base_angleZ = 0.0f;
+        } else {
+            float et = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+            pm_base_angleX = pm_anim_start_X + (0.0f - pm_anim_start_X) * et;
+            pm_base_angleY = pm_anim_start_Y + (0.0f - pm_anim_start_Y) * et;
+            pm_base_angleZ = pm_anim_start_Z + (0.0f - pm_anim_start_Z) * et;
+        }
+    } else if (!pm_locked) {
+        float nx = pm_normalizeAngle(pm_base_angleX);
+        float ny = pm_normalizeAngle(pm_base_angleY);
+        float nz = pm_normalizeAngle(pm_base_angleZ);
+        if (fabsf(nx) < 7.0f && fabsf(ny) < 7.0f && fabsf(nz) < 7.0f) {
+            pm_anim_snapping = true;
+            pm_anim_start_time = current_time;
+            pm_anim_start_X = nx;
+            pm_anim_start_Y = ny;
+            pm_anim_start_Z = nz;
+            pm_base_angleX = nx;
+            pm_base_angleY = ny;
+            pm_base_angleZ = nz;
+        }
+    } else if (pm_locked && pm_isDragging) {
+        float nx = pm_normalizeAngle(pm_base_angleX);
+        float ny = pm_normalizeAngle(pm_base_angleY);
+        float nz = pm_normalizeAngle(pm_base_angleZ);
+        if (fabsf(nx) > 12.0f || fabsf(ny) > 12.0f || fabsf(nz) > 12.0f) {
+            pm_locked = false;
+            pm_t = 0.0f;
+        }
+    }
+
+    if (pm_locked) {
+        pm_base_angleX = 0.0f;
+        pm_base_angleY = 0.0f;
+        pm_base_angleZ = 0.0f;
+    }
+
+    float lock_scale = 1.0f;
+    float lock_glow = 0.0f;
+    if (pm_locked) {
+        float lt = (float)((current_time - pm_lock_start_time) / 1.0f);
+        if (lt < 1.0f) {
+            float bump = sinf((float)M_PI * lt) * (1.0f - lt);
+            lock_scale = 1.0f + 0.08f * bump;
+            lock_glow = 0.45f * bump;
+        }
+    }
+
+    mat4 R = RotateY(pm_base_angleY) * RotateX(pm_base_angleX) * RotateZ(pm_base_angleZ) * Scale(lock_scale, lock_scale, lock_scale);
 
     const float L = 1.0f;
     const float T = 0.25f;
     mat4 CO = Translate(-L * 0.5f, -L * 0.5f, -L * 0.15f);
 
-    // Progress timeline variable
-    pm_t += BALL_SPEED;
-    if (pm_t >= 1.0f) pm_t -= 1.0f;
+    GLint glowLoc = glGetUniformLocation(pm_base_shaderProgram, "uLockGlow");
+    if (glowLoc != -1) {
+        float sustained = pm_locked ? 0.12f : 0.0f;
+        glUniform1f(glowLoc, sustained + lock_glow);
+    }
+
+    if (pm_locked) {
+        pm_t += BALL_SPEED;
+        if (pm_t >= 1.0f) pm_t -= 1.0f;
+    }
 
     int currentBallPass = 1;
     vec3 ballPos = sampleBallPath(pm_t, currentBallPass);
@@ -368,7 +456,7 @@ void pm_base_m_display()
     glDrawArrays(GL_TRIANGLES, 2 * verticesPerCuboid, verticesPerCuboid);
 
     // Render ball 
-    if (currentBallPass == 1)
+    if (pm_locked && currentBallPass == 1)
     {
         glUseProgram(pm_base_mirrorProgram);
         glUniform1i(pm_base_mirrorStyleLoc, pm_base_ballStyle);
@@ -410,7 +498,7 @@ void pm_base_m_display()
     glBindVertexArray(pm_base_vao);
 
     // Render ball
-    if (currentBallPass == 2)
+    if (pm_locked && currentBallPass == 2)
     {
         glUseProgram(pm_base_mirrorProgram);
         glUniform1i(pm_base_mirrorStyleLoc, pm_base_ballStyle);
@@ -433,58 +521,50 @@ void pm_base_m_display()
 // ============================================================
 void pm_base_m_keyCallback(GLFWwindow* win, int key, int, int action, int)
 {
-    //if (action == GLFW_PRESS)
-    //{
-    //    if (key == GLFW_KEY_1) pm_base_ballStyle = 0; // purple glass
-    //    if (key == GLFW_KEY_2) pm_base_ballStyle = 1; // dark glossy
-    //    if (key == GLFW_KEY_3) pm_base_ballStyle = 2; // chrome
-    //    if (key == GLFW_KEY_4) pm_base_ballStyle = 3; // clear glass
-    //    if (key == GLFW_KEY_0) pm_base_ballStyle = (pm_base_ballStyle + 1) % 4;
-    //    if (key == GLFW_KEY_5) pm_base_ballStyle = 5; // rainbow
-    //    if (key == GLFW_KEY_9) pm_base_ballStyle = 9; // original
-    //}
+    if (action == GLFW_PRESS || action == GLFW_REPEAT)
+    {
+        if (key == GLFW_KEY_LEFT)  pm_base_angleY -= 3.0f;
+        if (key == GLFW_KEY_RIGHT) pm_base_angleY += 3.0f;
+        if (key == GLFW_KEY_UP)    pm_base_angleX -= 3.0f;
+        if (key == GLFW_KEY_DOWN)  pm_base_angleX += 3.0f;
 
-    //if (action == GLFW_PRESS || action == GLFW_REPEAT)
-    //{
-    //    if (key == GLFW_KEY_LEFT)  pm_base_angleY -= 3.0f;
-    //    if (key == GLFW_KEY_RIGHT) pm_base_angleY += 3.0f;
-    //    if (key == GLFW_KEY_UP)    pm_base_angleX -= 3.0f;
-    //    if (key == GLFW_KEY_DOWN)  pm_base_angleX += 3.0f;
+        if (key == GLFW_KEY_R)
+        {
+            pm_base_angleX = (float)(rand() % 360);
+            pm_base_angleY = (float)(rand() % 360);
+            pm_base_angleZ = (float)(rand() % 360);
+            pm_locked = false;
+            pm_anim_snapping = false;
+            pm_t = 0.0f;
+        }
 
-    //    if (key == GLFW_KEY_R)
-    //    {
-    //        pm_base_angleX = 0.0f;
-    //        pm_base_angleY = 0.0f;
-    //        pm_base_angleZ = 0.0f;
-    //    }
-
-    //    if (key == GLFW_KEY_ESCAPE)
-    //        glfwSetWindowShouldClose(win, GL_TRUE);
-    //}
+        if (key == GLFW_KEY_ESCAPE)
+            glfwSetWindowShouldClose(win, GL_TRUE);
+    }
 }
 
 void pm_base_m_mouseButtonCallback(GLFWwindow* window, int button, int action, int)
 {
-    //if (button == GLFW_MOUSE_BUTTON_LEFT)
-    //{
-    //    pm_isDragging = (action == GLFW_PRESS);
-    //    if (pm_isDragging)
-    //        glfwGetCursorPos(window, &pm_mouseX, &pm_mouseY);
-    //}
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        pm_isDragging = (action == GLFW_PRESS);
+        if (pm_isDragging)
+            glfwGetCursorPos(window, &pm_mouseX, &pm_mouseY);
+    }
 }
 
 void pm_base_m_cursorPosCallback(GLFWwindow*, double x, double y)
 {
-    //if (!pm_isDragging) return;
+    if (!pm_isDragging) return;
 
-    //pm_base_angleY += (float)(x - pm_mouseX) * 0.4f;
-    //pm_base_angleX += (float)(y - pm_mouseY) * 0.4f;
+    pm_base_angleY += (float)(x - pm_mouseX) * 0.4f;
+    pm_base_angleX += (float)(y - pm_mouseY) * 0.4f;
 
-    //pm_mouseX = x;
-    //pm_mouseY = y;
+    pm_mouseX = x;
+    pm_mouseY = y;
 }
 
 void pm_base_m_scrollCallback(GLFWwindow*, double, double yoffset)
 {
-    //pm_base_angleZ += (float)yoffset * 2.0f;
+    pm_base_angleZ += (float)yoffset * 2.0f;
 }

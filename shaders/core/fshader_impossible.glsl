@@ -14,6 +14,9 @@ uniform float uObjHeight;   // world-space height of the object (for normalizing
 uniform float uLockGlow;    // 0..1, brightness pulse when figure clicks into solved pose
 uniform float uPostSolveTime; // seconds since the figure LOCKED (0 while unsolved)
 uniform int   uIsBall;      // 1 = render as bright emissive ball, 0 = normal figure
+uniform float uMetallic;     // 0 = default matte (all slots), 1 = chrome metal (Penrose)
+uniform vec3  uBallWorldPos; // world-space ball centre (zero when no ball active)
+uniform float uBallRadius;   // ball world-space radius (0 = no ball — skips reflection)
 
 out vec4 outColor;
 
@@ -215,6 +218,72 @@ void main()
     float edge       = max(silhouette, crease);
     vec3  edgeColor  = vec3(0.04, 0.04, 0.07);
     litColor         = mix(litColor, edgeColor, edge);
+
+    // ── METALLIC CHROME — full PBR override, enabled via uMetallic = 1 ──────
+    // Zero extra cost for all other slots (uMetallic = 0.0 by default).
+    if (uMetallic > 0.5) {
+        float NdotV  = max(dot(N, V), 0.0);
+        float NdotL  = max(dot(N, L), 0.0);
+
+        // Schlick-Fresnel: metals use their base albedo as F0 (coloured specular).
+        vec3  F0      = mix(base, vec3(0.88, 0.90, 0.96), 0.55);
+        vec3  fresnel = F0 + (vec3(1.0) - F0) * pow(1.0 - NdotV, 5.0);
+
+        // Tight specular lobe (high-power Blinn-Phong approximating GGX).
+        vec3  Hk    = normalize(L + V);
+        float NdotHk = max(dot(N, Hk), 0.0);
+        float spec2  = pow(NdotHk, 220.0) * 2.5;
+
+        // Near-zero diffuse — real metals have no subsurface scatter.
+        float diff2  = NdotL * 0.06;
+
+        // Key-light contribution.
+        vec3  metalLit = (base * diff2 + fresnel * spec2) * uLightColor * brightness;
+
+        // Fake environment map: sky-gradient sampled along the reflected direction.
+        vec3  reflDir = reflect(-V, N);
+        float envT    = clamp(reflDir.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3  envLow  = vec3(0.05, 0.06, 0.10);
+        vec3  envMid  = vec3(0.50, 0.56, 0.70);
+        vec3  envHigh = vec3(0.90, 0.94, 1.00);
+        vec3  envCol  = mix(envLow, envMid,  smoothstep(0.0, 0.5, envT));
+        envCol        = mix(envCol, envHigh, smoothstep(0.5, 1.0, envT));
+        // Metals tint their reflections with F0.
+        vec3  envRefl = envCol * F0 * (0.35 + 0.65 * fresnel.r);
+
+        litColor = metalLit + envRefl;
+
+        // Re-apply edge lines so bars stay readable.
+        litColor = mix(litColor, edgeColor, edge);
+
+        // ── Ball reflection: treat the ball as an iridescent point light ─────
+        // uBallRadius == 0 when there is no active ball; whole block is skipped.
+        if (uBallRadius > 0.0) {
+            vec3  Lball  = uBallWorldPos - fragPos;
+            float bDist  = length(Lball);
+            Lball        = Lball / (bDist + 1e-5);
+            vec3  Hball  = normalize(Lball + V);
+            float bSpec  = pow(max(dot(N, Hball), 0.0), 200.0);
+            // Tight falloff — reflection sits right under the ball, not spread wide.
+            float bAtten = 1.0 / (1.0 + bDist * bDist * 0.30);
+
+            // Iridescent hue — same HSV→RGB as fshader_mirror.glsl style-5.
+            float hue    = fract(uTime * 0.30 + bDist * 0.10);
+            vec4  Kc     = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+            vec3  pRain  = abs(fract(vec3(hue) + Kc.xyz) * 6.0 - Kc.www);
+            vec3  rainbow = clamp(pRain - Kc.xxx, 0.0, 1.0);
+
+            litColor += rainbow * bSpec * bAtten * 3.5;
+        }
+
+        // Lock-glow pulse still applies.
+        vec3 strikeM = mix(uLightColor, vec3(1.0), clamp(uLockGlow * 1.5, 0.0, 1.0)) * uLockGlow;
+        litColor += strikeM;
+
+        litColor = min(litColor, vec3(1.0));
+        outColor = vec4(litColor, fragColor.a);
+        return;
+    }
 
     // ── Warm-slot enrichment (warmth-gated; 0 for every neutral/white slot) ──
     //   warmth = R - B of uLightColor → 0 for white/neutral slots, ~0.5 for the

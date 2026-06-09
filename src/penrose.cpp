@@ -12,17 +12,18 @@
 
 static ObjShape g_shape;
 
-// Cool slate-blue palette — distinct from slot #3's warm orange/clay.
+// Chrome steel palette — near-white with cool blue tint, high contrast between faces
+// so the metallic shader's environment reflections read clearly on each bar.
 static ObjColorPalette continuous_palette()
 {
     ObjColorPalette p;
-    p.xp = vec4(0.62f, 0.72f, 0.88f, 1.0f);   // X+ — pale slate
-    p.xn = vec4(0.46f, 0.56f, 0.72f, 1.0f);   // X-
-    p.yp = vec4(0.74f, 0.82f, 0.92f, 1.0f);   // Y+ — light sky
-    p.yn = vec4(0.52f, 0.62f, 0.78f, 1.0f);   // Y-
-    p.zp = vec4(0.68f, 0.74f, 0.82f, 1.0f);   // Z+ — silver-blue
-    p.zn = vec4(0.50f, 0.58f, 0.70f, 1.0f);   // Z-
-    p.generic = vec4(0.58f, 0.66f, 0.78f, 1.0f);
+    p.xp = vec4(0.82f, 0.85f, 0.90f, 1.0f);  // X+ bright face
+    p.xn = vec4(0.48f, 0.52f, 0.58f, 1.0f);  // X- darker
+    p.yp = vec4(0.88f, 0.91f, 0.95f, 1.0f);  // Y+ lightest
+    p.yn = vec4(0.42f, 0.46f, 0.54f, 1.0f);  // Y- deepest shadow
+    p.zp = vec4(0.72f, 0.76f, 0.83f, 1.0f);  // Z+ mid
+    p.zn = vec4(0.38f, 0.42f, 0.50f, 1.0f);  // Z- darkest
+    p.generic = vec4(0.65f, 0.68f, 0.75f, 1.0f);
     return p;
 }
 
@@ -46,13 +47,17 @@ void penrose_init()
     //   P_left -> P_bottom          X-bar (bottom diagonal bar)
     //   P_bottom -> P_mid_back      Y-bar 2 (lower half of vertical bar)
     //   P_mid_back -> P_mid_front   impossible teleport jump (invisible, both project to screen (0, 0.668))
-    g_shape.setBallPath({
-        { vec3( 5.818f,  5.818f,  5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Front bar center (P_mid_front)
-        { vec3( 5.818f,  0.0f,    5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Top corner (P_top)
-        { vec3( 5.818f,  0.0f,   -5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Left corner (P_left)
-        { vec3(-5.818f,  0.0f,   -5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Bottom corner (P_bottom)
-        { vec3(-5.818f, -5.818f, -5.818f), vec3(0.0f, 0.0f, 0.0f) }, // Back bar center (P_mid_back)
-    }, /*thickness=*/0.0f, /*ballRadius=*/0.45f);
+    g_shape.setBallPath(
+        {
+            {vec3(5.818f, 5.818f, 5.818f), vec3(0.0f, 0.0f, 0.0f)},     // Front bar center (P_mid_front)
+            {vec3(5.818f, 0.0f, 5.818f), vec3(0.0f, 0.0f, 0.0f)},       // Top corner (P_top)
+            {vec3(5.818f, 0.0f, -5.818f), vec3(0.0f, 0.0f, 0.0f)},      // Left corner (P_left)
+            {vec3(-5.818f, 0.0f, -5.818f), vec3(0.0f, 0.0f, 0.0f)},     // Bottom corner (P_bottom)
+            {vec3(-5.818f, -5.818f, -5.818f), vec3(0.0f, 0.0f, 0.0f)},  // Back bar center (P_mid_back)
+        },
+        /*thickness=*/0.0f, /*ballRadius=*/0.32f);
+    g_shape.useMirrorBall(5);   // 5 = iridescent/rainbow style
+    g_shape.setMetallic(true);  // chrome PBR with ball reflection
 }
 void penrose_display() { g_shape.display(); }
 void penrose_mouseButtonCallback(GLFWwindow* w, int b, int a, int) { g_shape.mouseButton(w, b, a); }
