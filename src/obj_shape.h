@@ -1139,8 +1139,9 @@ struct ObjShape
             // but is still correctly occluded by bars in front of it under GL_DEPTH_TEST.
             mat4 ballScale = Scale(currentBallScale, currentBallScale, currentBallScale);
             vec3 viewDir = normalize(eye);
-            // Depth-shifted pos — pushed toward camera so the sphere isn't clipped by its own bar.
-            vec3 world_ball_pos = lastBallWorldPos + viewDir * (currentBallScale + 2.5f);
+            // Use the actual surface position — depth test handles occlusion.
+            // A tiny epsilon (half the ball radius) prevents z-fighting with the bar surface.
+            vec3 world_ball_pos = lastBallWorldPos + viewDir * (currentBallScale * 0.5f);
 
             mat4 rotPartOnly;
             if (solvePhase == SolvePhase::Rotating)
