@@ -1,9 +1,11 @@
-#include "includes.h"
-#include <vector>
+// UNUSED
+
 #include <cmath>
+#include <vector>
 
+#include "includes.h"
 
-int pm_base_ballStyle = 5;   // 0=purple glass, 5=rainbow
+int pm_base_ballStyle = 5;  // 0=purple glass, 5=rainbow
 
 GLuint pm_base_mirrorStyleLoc;
 GLuint pm_base_mirrorTimeLoc;
@@ -48,16 +50,16 @@ std::vector<vec4> spherePositions;
 std::vector<vec4> sphereColors;
 
 // ============================================================
-// Ball animation 
+// Ball animation
 // ============================================================
-static bool   pm_isDragging = false;
+static bool pm_isDragging = false;
 static double pm_mouseX = 0.0;
 static double pm_mouseY = 0.0;
 
-static float pm_t = 0.0f;   // path parameter [0, 1)
+static float pm_t = 0.0f;  // path parameter [0, 1)
 
 // Ball settings
-static const float BALL_RADIUS = 0.05f;  
+static const float BALL_RADIUS = 0.05f;
 static const float BALL_SPEED = 0.00025f;
 
 static bool pm_locked = false;
@@ -68,7 +70,8 @@ static float pm_anim_start_Y = 0.0f;
 static float pm_anim_start_Z = 0.0f;
 static double pm_lock_start_time = 0.0;
 
-static float pm_normalizeAngle(float a) {
+static float pm_normalizeAngle(float a)
+{
     float r = fmodf(a, 360.0f);
     if (r > 180.0f) r -= 360.0f;
     if (r < -180.0f) r += 360.0f;
@@ -100,8 +103,12 @@ void buildSphere(float radius, int stacks, int slices, const vec4& color)
             vec4 p2(radius * sinf(phi1) * cosf(theta1), radius * cosf(phi1), radius * sinf(phi1) * sinf(theta1), 1.0f);
             vec4 p3(radius * sinf(phi0) * cosf(theta1), radius * cosf(phi0), radius * sinf(phi0) * sinf(theta1), 1.0f);
 
-            spherePositions.push_back(p0); spherePositions.push_back(p1); spherePositions.push_back(p2);
-            spherePositions.push_back(p0); spherePositions.push_back(p2); spherePositions.push_back(p3);
+            spherePositions.push_back(p0);
+            spherePositions.push_back(p1);
+            spherePositions.push_back(p2);
+            spherePositions.push_back(p0);
+            spherePositions.push_back(p2);
+            spherePositions.push_back(p3);
 
             for (int k = 0; k < 6; ++k) sphereColors.push_back(color);
         }
@@ -115,7 +122,7 @@ void buildSphere(float radius, int stacks, int slices, const vec4& color)
 // ============================================================
 static void buildSplitCornerFace()
 {
-    const float s = 0.125f;   // half-size (matches T/2 when T = 0.25)
+    const float s = 0.125f;  // half-size (matches T/2 when T = 0.25)
     const float eps = 0.0005f;
 
     std::vector<vec4> positions;
@@ -126,8 +133,8 @@ static void buildSplitCornerFace()
     vec4 C(s, eps, s, 1.0f);
     vec4 D(-s, eps, s, 1.0f);
 
-    //vec4 color1(0.20f, 0.25f, 0.38f, 1.0f);
-    //vec4 color2(0.38f, 0.45f, 0.58f, 1.0f);
+    // vec4 color1(0.20f, 0.25f, 0.38f, 1.0f);
+    // vec4 color2(0.38f, 0.45f, 0.58f, 1.0f);
 
     vec4 color1(0.15f, 0.42f, 0.72f, 1.0f);
     vec4 color2(0.45f, 0.78f, 0.95f, 1.0f);
@@ -176,17 +183,18 @@ static void buildSplitCornerFace()
 // ============================================================
 // Ball path configuration
 // ============================================================
-struct BallPathSegment {
+struct BallPathSegment
+{
     vec3 start;
     vec3 end;
-    int renderPass; // 1 , 2
+    int renderPass;  // 1 , 2
 };
 
 static const int NUM_SEGMENTS = 10;
 static BallPathSegment pathSegments[NUM_SEGMENTS];
 static float pathLen[NUM_SEGMENTS];
 static float pathTotal = 0.0f;
-static bool  pathReady = false;
+static bool pathReady = false;
 
 static void buildBallPath()
 {
@@ -208,35 +216,35 @@ static void buildBallPath()
     const float offset = 0.175f;
     const float y_bot = L - offset;
 
-    // Path 1: 
-    pathSegments[0] = { vec3(x_start, y_start, z_start), vec3(x_end, y_start, z_start), 1 };
+    // Path 1:
+    pathSegments[0] = {vec3(x_start, y_start, z_start), vec3(x_end, y_start, z_start), 1};
 
-    // Path 2: 
-    pathSegments[1] = { vec3(x_end, y_start, z_start), vec3(x_end, y_start, z_end), 1 };
+    // Path 2:
+    pathSegments[1] = {vec3(x_end, y_start, z_start), vec3(x_end, y_start, z_end), 1};
 
-    // Path 3: 
+    // Path 3:
     pathSegments[2] = {};
 
     // Path 4:
     pathSegments[3] = {};
 
-    // Path 5: 
-    pathSegments[4] = { vec3(x_end + T * 0.5f + R, L, z_start), vec3(x_end + T * 0.5f + R, L, z_end), 1 };
+    // Path 5:
+    pathSegments[4] = {vec3(x_end + T * 0.5f + R, L, z_start), vec3(x_end + T * 0.5f + R, L, z_end), 1};
 
-    // Path 6: 
-    pathSegments[5] = { vec3(0.15f, z_start, 0.0f), vec3(0.15f, 0.65f, 0.0f), 2 };
+    // Path 6:
+    pathSegments[5] = {vec3(0.15f, z_start, 0.0f), vec3(0.15f, 0.65f, 0.0f), 2};
 
-    // Path 7: 
+    // Path 7:
     pathSegments[6] = {};
 
-    // Path 8: 
+    // Path 8:
     pathSegments[7] = {};
 
-    // Path 9: 
-    pathSegments[8] = { vec3(x_start, 0.0f, T * 0.5f + R), vec3(x_start, L, T * 0.5f + R), 2 };
-    
-    // Path 10: 
-    pathSegments[9] = { vec3(x_start, L, T * 0.5f + R), vec3(x_end, L, T * 0.5f + R), 1 };
+    // Path 9:
+    pathSegments[8] = {vec3(x_start, 0.0f, T * 0.5f + R), vec3(x_start, L, T * 0.5f + R), 2};
+
+    // Path 10:
+    pathSegments[9] = {vec3(x_start, L, T * 0.5f + R), vec3(x_end, L, T * 0.5f + R), 1};
 
     // Compute total sequence distance
     pathTotal = 0.0f;
@@ -275,8 +283,7 @@ static vec3 sampleBallPath(float t, int& passOut)
     }
 
     float localT = 0.0f;
-    if (pathLen[seg] > 1e-6f)
-        localT = (dist - accum) / pathLen[seg];
+    if (pathLen[seg] > 1e-6f) localT = (dist - accum) / pathLen[seg];
 
     passOut = pathSegments[seg].renderPass;
     return pathSegments[seg].start + (pathSegments[seg].end - pathSegments[seg].start) * localT;
@@ -288,7 +295,7 @@ static vec3 sampleBallPath(float t, int& passOut)
 void pm_base_m_init()
 {
     pm_base_init();
-    
+
     srand((unsigned)time(NULL));
     pm_base_angleX = (float)(rand() % 360);
     pm_base_angleY = (float)(rand() % 360);
@@ -306,7 +313,7 @@ void pm_base_m_init()
     pm_base_mirrorProjectionPos = glGetUniformLocation(pm_base_mirrorProgram, "projection");
     pm_base_mirrorCameraPosLoc = glGetUniformLocation(pm_base_mirrorProgram, "cameraPos");
 
-    //buildSphere(1.0f, 24, 24, vec4(0.95f, 0.70f, 0.20f, 1.0f));
+    // buildSphere(1.0f, 24, 24, vec4(0.95f, 0.70f, 0.20f, 1.0f));
     buildSphere(1.0f, 48, 48, vec4(0.95f, 0.70f, 0.20f, 1.0f));
 
     glGenVertexArrays(1, &pm_base_sphereVAO);
@@ -356,9 +363,11 @@ void pm_base_m_display()
 
     double current_time = glfwGetTime();
 
-    if (pm_anim_snapping) {
+    if (pm_anim_snapping)
+    {
         float t = (float)((current_time - pm_anim_start_time) / 0.85f);
-        if (t >= 1.0f) {
+        if (t >= 1.0f)
+        {
             t = 1.0f;
             pm_anim_snapping = false;
             pm_locked = true;
@@ -366,17 +375,22 @@ void pm_base_m_display()
             pm_base_angleX = 0.0f;
             pm_base_angleY = 0.0f;
             pm_base_angleZ = 0.0f;
-        } else {
+        }
+        else
+        {
             float et = t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
             pm_base_angleX = pm_anim_start_X + (0.0f - pm_anim_start_X) * et;
             pm_base_angleY = pm_anim_start_Y + (0.0f - pm_anim_start_Y) * et;
             pm_base_angleZ = pm_anim_start_Z + (0.0f - pm_anim_start_Z) * et;
         }
-    } else if (!pm_locked) {
+    }
+    else if (!pm_locked)
+    {
         float nx = pm_normalizeAngle(pm_base_angleX);
         float ny = pm_normalizeAngle(pm_base_angleY);
         float nz = pm_normalizeAngle(pm_base_angleZ);
-        if (fabsf(nx) < 7.0f && fabsf(ny) < 7.0f && fabsf(nz) < 7.0f) {
+        if (fabsf(nx) < 7.0f && fabsf(ny) < 7.0f && fabsf(nz) < 7.0f)
+        {
             pm_anim_snapping = true;
             pm_anim_start_time = current_time;
             pm_anim_start_X = nx;
@@ -386,17 +400,21 @@ void pm_base_m_display()
             pm_base_angleY = ny;
             pm_base_angleZ = nz;
         }
-    } else if (pm_locked && pm_isDragging) {
+    }
+    else if (pm_locked && pm_isDragging)
+    {
         float nx = pm_normalizeAngle(pm_base_angleX);
         float ny = pm_normalizeAngle(pm_base_angleY);
         float nz = pm_normalizeAngle(pm_base_angleZ);
-        if (fabsf(nx) > 12.0f || fabsf(ny) > 12.0f || fabsf(nz) > 12.0f) {
+        if (fabsf(nx) > 12.0f || fabsf(ny) > 12.0f || fabsf(nz) > 12.0f)
+        {
             pm_locked = false;
             pm_t = 0.0f;
         }
     }
 
-    if (pm_locked) {
+    if (pm_locked)
+    {
         pm_base_angleX = 0.0f;
         pm_base_angleY = 0.0f;
         pm_base_angleZ = 0.0f;
@@ -404,28 +422,33 @@ void pm_base_m_display()
 
     float lock_scale = 1.0f;
     float lock_glow = 0.0f;
-    if (pm_locked) {
+    if (pm_locked)
+    {
         float lt = (float)((current_time - pm_lock_start_time) / 1.0f);
-        if (lt < 1.0f) {
+        if (lt < 1.0f)
+        {
             float bump = sinf((float)M_PI * lt) * (1.0f - lt);
             lock_scale = 1.0f + 0.08f * bump;
             lock_glow = 0.45f * bump;
         }
     }
 
-    mat4 R = RotateY(pm_base_angleY) * RotateX(pm_base_angleX) * RotateZ(pm_base_angleZ) * Scale(lock_scale, lock_scale, lock_scale);
+    mat4 R = RotateY(pm_base_angleY) * RotateX(pm_base_angleX) * RotateZ(pm_base_angleZ) *
+             Scale(lock_scale, lock_scale, lock_scale);
 
     const float L = 1.0f;
     const float T = 0.25f;
     mat4 CO = Translate(-L * 0.5f, -L * 0.5f, -L * 0.15f);
 
     GLint glowLoc = glGetUniformLocation(pm_base_shaderProgram, "uLockGlow");
-    if (glowLoc != -1) {
+    if (glowLoc != -1)
+    {
         float sustained = pm_locked ? 0.12f : 0.0f;
         glUniform1f(glowLoc, sustained + lock_glow);
     }
 
-    if (pm_locked) {
+    if (pm_locked)
+    {
         pm_t += BALL_SPEED;
         if (pm_t >= 1.0f) pm_t -= 1.0f;
     }
@@ -437,25 +460,25 @@ void pm_base_m_display()
     if (overrideLoc != -1) glUniform1i(overrideLoc, 0);
 
     // ============================================================
-    // PASS 1: Draw Base 3D Shape & Background Path 
+    // PASS 1: Draw Base 3D Shape & Background Path
     // ============================================================
 
-    // arm1 
+    // arm1
     mat4 m1 = R * CO * Translate(L * 0.5f, L, 0.0f) * Scale(L + T, T, T);
     glUniformMatrix4fv(pm_base_modelPos, 1, GL_FALSE, &m1.d[0].x);
     glDrawArrays(GL_TRIANGLES, 0, verticesPerCuboid);
 
-    // arm2 
+    // arm2
     mat4 m2 = R * CO * Translate(0.0f, L * 0.5f, 0.0f) * Scale(T, L, T);
     glUniformMatrix4fv(pm_base_modelPos, 1, GL_FALSE, &m2.d[0].x);
     glDrawArrays(GL_TRIANGLES, verticesPerCuboid, verticesPerCuboid);
 
-    // arm3 
+    // arm3
     mat4 m3 = R * CO * Translate(L, L, L * 0.5f + T * 0.5f) * Scale(T, T, L);
     glUniformMatrix4fv(pm_base_modelPos, 1, GL_FALSE, &m3.d[0].x);
     glDrawArrays(GL_TRIANGLES, 2 * verticesPerCuboid, verticesPerCuboid);
 
-    // Render ball 
+    // Render ball
     if (pm_locked && currentBallPass == 1)
     {
         glUseProgram(pm_base_mirrorProgram);
@@ -466,13 +489,14 @@ void pm_base_m_display()
         glUniformMatrix4fv(pm_base_mirrorProjectionPos, 1, GL_FALSE, &projection.d[0].x);
         glUniform3f(pm_base_mirrorCameraPosLoc, eye.x, eye.y, eye.z);
 
-        mat4 ballModel = R * CO * Translate(ballPos.x, ballPos.y, ballPos.z) * Scale(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS);
+        mat4 ballModel =
+            R * CO * Translate(ballPos.x, ballPos.y, ballPos.z) * Scale(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS);
         glUniformMatrix4fv(pm_base_mirrorModelPos, 1, GL_FALSE, &ballModel.d[0].x);
         glDrawArrays(GL_TRIANGLES, 0, pm_base_sphereVertexCount);
     }
 
     // ============================================================
-    // PASS2: 
+    // PASS2:
     // ============================================================
     glClear(GL_DEPTH_BUFFER_BIT);
 
@@ -508,7 +532,8 @@ void pm_base_m_display()
         glUniformMatrix4fv(pm_base_mirrorProjectionPos, 1, GL_FALSE, &projection.d[0].x);
         glUniform3f(pm_base_mirrorCameraPosLoc, eye.x, eye.y, eye.z);
 
-        mat4 ballModel = R * CO * Translate(ballPos.x, ballPos.y, ballPos.z) * Scale(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS);
+        mat4 ballModel =
+            R * CO * Translate(ballPos.x, ballPos.y, ballPos.z) * Scale(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS);
         glUniformMatrix4fv(pm_base_mirrorModelPos, 1, GL_FALSE, &ballModel.d[0].x);
         glDrawArrays(GL_TRIANGLES, 0, pm_base_sphereVertexCount);
     }
@@ -523,10 +548,10 @@ void pm_base_m_keyCallback(GLFWwindow* win, int key, int, int action, int)
 {
     if (action == GLFW_PRESS || action == GLFW_REPEAT)
     {
-        if (key == GLFW_KEY_LEFT)  pm_base_angleY -= 3.0f;
+        if (key == GLFW_KEY_LEFT) pm_base_angleY -= 3.0f;
         if (key == GLFW_KEY_RIGHT) pm_base_angleY += 3.0f;
-        if (key == GLFW_KEY_UP)    pm_base_angleX -= 3.0f;
-        if (key == GLFW_KEY_DOWN)  pm_base_angleX += 3.0f;
+        if (key == GLFW_KEY_UP) pm_base_angleX -= 3.0f;
+        if (key == GLFW_KEY_DOWN) pm_base_angleX += 3.0f;
 
         if (key == GLFW_KEY_R)
         {
@@ -538,8 +563,7 @@ void pm_base_m_keyCallback(GLFWwindow* win, int key, int, int action, int)
             pm_t = 0.0f;
         }
 
-        if (key == GLFW_KEY_ESCAPE)
-            glfwSetWindowShouldClose(win, GL_TRUE);
+        if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(win, GL_TRUE);
     }
 }
 
@@ -548,8 +572,7 @@ void pm_base_m_mouseButtonCallback(GLFWwindow* window, int button, int action, i
     if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
         pm_isDragging = (action == GLFW_PRESS);
-        if (pm_isDragging)
-            glfwGetCursorPos(window, &pm_mouseX, &pm_mouseY);
+        if (pm_isDragging) glfwGetCursorPos(window, &pm_mouseX, &pm_mouseY);
     }
 }
 
@@ -564,7 +587,4 @@ void pm_base_m_cursorPosCallback(GLFWwindow*, double x, double y)
     pm_mouseY = y;
 }
 
-void pm_base_m_scrollCallback(GLFWwindow*, double, double yoffset)
-{
-    pm_base_angleZ += (float)yoffset * 2.0f;
-}
+void pm_base_m_scrollCallback(GLFWwindow*, double, double yoffset) { pm_base_angleZ += (float)yoffset * 2.0f; }
