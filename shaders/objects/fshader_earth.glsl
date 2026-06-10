@@ -1,4 +1,6 @@
 #version 150
+// Used by: neckercube.cpp | Object: Impossible Cube | Effect: Earth globe texture rendering
+
 
 in vec3 fragPos;
 in vec4 fragColor;

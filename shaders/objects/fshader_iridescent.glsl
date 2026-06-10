@@ -1,4 +1,6 @@
 #version 150
+// Used by: arch_proc.cpp | Object: Curved Impossible Arch | Effect: Iridescent polished chrome surface rendering
+
 
 // CHROME / METAL — Cook-Torrance BRDF with cubemap-based environment IBL.
 //

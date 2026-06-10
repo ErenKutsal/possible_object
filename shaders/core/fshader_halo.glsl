@@ -1,4 +1,6 @@
 #version 150
+// Used by: arch_proc.cpp | Object: Curved Impossible Arch | Effect: Forge-glow halo background pre-pass
+
 
 // Firelight halo — fragment shader.
 // Conceptually: the lava on the figure is a LIGHT SOURCE that warms the air

@@ -1,4 +1,6 @@
 #version 150
+// Used by: reutersvard.cpp | Object: Reutersvard Rectangle | Effect: Silhouette outline / wireframe line rendering
+
 
 in float fArcLength;
 

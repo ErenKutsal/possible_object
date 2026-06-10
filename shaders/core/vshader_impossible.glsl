@@ -1,4 +1,6 @@
 #version 150
+// Used by: obj_shape.h / default for OBJ shapes | Object: Impossible shapes | Effect: Vertex transformation with axonometric project matrix
+
 
 in vec4 vPosition;
 in vec4 vColor;

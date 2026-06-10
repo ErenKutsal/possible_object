@@ -28,8 +28,8 @@ static GLint bg_aspectLoc = -1;
 
 static void bg_init()
 {
-    // Fullscreen quad with custom blueprint grid shader
-    bg_program = InitShader("../shaders/core/vshader_halo.glsl", "../shaders/backgrounds/fshader_blueprint_bg.glsl");
+    // Fullscreen quad with dark blue glow background shader
+    bg_program = InitShader("../shaders/core/vshader_halo.glsl", "../shaders/backgrounds/fshader_dark_blue_glow.glsl");
     bg_baseLoc = glGetUniformLocation(bg_program, "uBaseColor");
     bg_timeLoc = glGetUniformLocation(bg_program, "uTime");
     bg_amountLoc = glGetUniformLocation(bg_program, "uAmount");

@@ -1,4 +1,6 @@
 #version 150
+// Used by: polygon_bg.cpp | Object: Impossible Polygon (slot 0, bg index 0) | Effect: Escher corridor/gallery background
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Escher Corridor  (n=3, triangle slot)  — FIXED
 //

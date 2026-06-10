@@ -1,4 +1,6 @@
 #version 150
+// Used by: polygon_bg.cpp | Object: Bloom post-processing | Effect: Bright-pass filter extraction
+
 
 in  vec2 fragUV;
 out vec4 FragColor;

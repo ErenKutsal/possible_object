@@ -1,4 +1,6 @@
 #version 150
+// Used by: arch_proc.cpp | Object: Curved Impossible Arch | Effect: Iridescent vertex attribute setup
+
 
 in vec4 vPosition;
 in vec4 vColor;

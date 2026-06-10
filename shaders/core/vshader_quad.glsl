@@ -1,4 +1,6 @@
 #version 150
+// Used by: polygon_bg.cpp | Object: Bloom post-processing / Interactive backgrounds | Effect: Fullscreen NDC quad vertex shader
+
 
 // Fullscreen quad: two attributes bound at locations 0 and 1
 // via glBindAttribLocation before link.

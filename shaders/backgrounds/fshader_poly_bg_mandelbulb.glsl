@@ -1,4 +1,6 @@
 #version 150
+// Used by: polygon_bg.cpp | Object: Impossible Polygon (slot 0, bg index 1) | Effect: Mandelbulb 3D fractal background
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mandelbulb  (n=4, square slot)
 //

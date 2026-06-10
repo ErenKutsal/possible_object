@@ -1,4 +1,6 @@
 #version 150
+// Used by: arch_proc.cpp | Object: Curved Impossible Arch | Effect: Horizon skybox background
+
 
 // Skybox fragment shader. Samples the same baked procedural cubemap that
 // the chrome figure samples for its reflection — guarantees the skybox and

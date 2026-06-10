@@ -1,4 +1,6 @@
 #version 150
+// Used by: impossible_polygon.cpp | Object: Impossible Polygon | Effect: Custom shader for impossible polygon rendering
+
 
 in vec3 fragPos;
 in vec3 fragNormal;

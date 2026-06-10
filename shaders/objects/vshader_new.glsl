@@ -1,4 +1,6 @@
 #version 150
+// Used by: impossible_polygon.cpp | Object: Impossible Polygon | Effect: Custom impossible polygon vertex shader
+
 
 in vec3 vPosition;
 in vec3 vNormal;

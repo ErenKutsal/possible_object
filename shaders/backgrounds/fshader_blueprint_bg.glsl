@@ -1,4 +1,6 @@
 #version 150
+// Used by: penrose_blocks_proc.cpp | Object: Blocked Penrose | Effect: Animated mathematical blueprint background
+
 
 // Blueprint Mathematical Grid background — fragment shader.
 // Draws crisp, analytical 1-pixel wide grids, polar circles, and dotted guides.

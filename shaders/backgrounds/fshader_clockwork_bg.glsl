@@ -1,4 +1,6 @@
 #version 150
+// Used by: penrose_blocks.cpp | Object: Penrose Stair | Effect: Moving clock gears background
+
 
 // Astral Clockwork background — fades in once the Penrose Staircase
 // is solved. Uses the fullscreen-quad vertex shader (vshader_halo.glsl).

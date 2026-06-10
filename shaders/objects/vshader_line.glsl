@@ -1,4 +1,6 @@
 #version 150
+// Used by: reutersvard.cpp | Object: Reutersvard Rectangle | Effect: Silhouette outline line vertex shader
+
 
 in vec4 vPosition; // xyz = coordinate, w = cumulative arc length
 

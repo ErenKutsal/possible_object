@@ -1,4 +1,6 @@
 #version 150
+// Used by: polygon_bg.cpp | Object: Impossible Polygon (slot 0, bg index 2) | Effect: Gyroid SDF background
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Gyroid SDF  (n=5, pentagon slot)
 //

@@ -1,4 +1,6 @@
 #version 150
+// Used by: penrose.cpp | Object: Penrose Triangle | Effect: Neon cyber grid texture rendering
+
 
 // Dedicated shader for the Penrose Triangle (continuous variant).
 // Renders the figure as metallic chrome steel (PBR with custom skybox reflection)

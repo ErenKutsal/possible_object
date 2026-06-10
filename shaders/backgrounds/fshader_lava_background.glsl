@@ -1,4 +1,6 @@
 #version 150
+// Used by: arch.cpp | Object: Impossible Arch | Effect: Animated lava glow background
+
 
 // Lava / Forge background — animated volcanic scene that fades in once
 // the Impossible Arch is solved. Uses the same fullscreen quad vertex

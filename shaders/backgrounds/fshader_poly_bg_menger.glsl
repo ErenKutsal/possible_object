@@ -1,4 +1,6 @@
 #version 150
+// Used by: polygon_bg.cpp | Object: Impossible Polygon (slot 0, bg index 3) | Effect: Menger Sponge fractal background
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Menger Sponge  (n=6+, hexagon slot and beyond)
 //

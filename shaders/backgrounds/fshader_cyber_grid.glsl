@@ -1,4 +1,6 @@
 #version 150
+// Used by: penrose.cpp | Object: Penrose Triangle | Effect: Neon grid retro background
+
 
 // Cyber Grid Holographic background — fades in once the Penrose Triangle
 // is solved. Uses the fullscreen-quad vertex shader (vshader_halo.glsl).

@@ -1,4 +1,6 @@
 #version 150
+// Used by: reutersvard.cpp | Object: Reutersvard Rectangle | Effect: Minimalist porcelain shader
+
 
 in vec3 fragPos;
 in vec4 fragColor;

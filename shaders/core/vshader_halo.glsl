@@ -1,4 +1,6 @@
 #version 150
+// Used by: arch.cpp, arch_proc.cpp, neckercube.cpp, penrose.cpp, penrose_blocks.cpp, penrose_blocks_proc.cpp, reutersvard.cpp | Object: Background pre-pass (radial bloom / halo / lava / forge-glow) | Effect: Volumetric ambient halo glow vertex transform
+
 
 // Firelight halo — fullscreen quad vertex shader.
 // Slot 4 (Impossible Arch) only. Draws a soft radial warm glow on the

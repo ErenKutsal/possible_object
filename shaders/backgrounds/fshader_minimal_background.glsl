@@ -1,4 +1,6 @@
 #version 150
+// Used by: reutersvard.cpp, penrose_blocks_proc.cpp | Object: Reutersvard Rectangle / Blocked Penrose | Effect: Minimalist solid backdrop with faint grid
+
 
 in vec2 vNdc;
 

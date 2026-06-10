@@ -1,4 +1,6 @@
 #version 150
+// Used by: neckercube.cpp | Object: Impossible Cube | Effect: Space/universe background
+
 
 in vec2 vNdc;
 out vec4 outColor;

@@ -1,4 +1,6 @@
 #version 150
+// Used by: arch_proc.cpp | Object: Curved Impossible Arch | Effect: Horizon skybox vertex shader
+
 
 // Skybox vertex shader. Draws a unit cube whose vertex positions ARE the
 // direction vectors we sample the procedural sky with.

@@ -1,4 +1,6 @@
 #version 150
+// Used by: penrose_blocks.cpp | Object: Penrose Stair | Effect: Kintsugi gold-cracked obsidian rendering
+
 
 in vec3 fragPos;
 in vec4 fragColor;

@@ -1,4 +1,6 @@
 #version 150
+// Used by: obj_shape.h / default for OBJ shapes | Object: Impossible shapes | Effect: Standard shading with flat illusion borders, lighting, and HDR solve glow
+
 
 in vec3 fragPos;
 in vec3 vModelPos;   // model-space position (rock texture coord — rotation-invariant)
