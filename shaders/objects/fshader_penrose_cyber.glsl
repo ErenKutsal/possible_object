@@ -21,10 +21,16 @@ uniform int   uIsBall;      // 1 = render as bright emissive ball, 0 = normal fi
 uniform vec3  uBallWorldPos; // world-space ball centre (zero when no ball active)
 uniform float uBallRadius;   // ball world-space radius (0 = no ball — skips reflection)
 
+uniform int uFlatShade;   // 1 = flat illusion colors only (no texture/lighting/edges/animation)
 out vec4 outColor;
 
 void main()
 {
+    // FLAT ILLUSION MODE — solid per-face orientation color only.
+    if (uFlatShade == 1) {
+        outColor = vec4(fragColor.rgb, fragColor.a);
+        return;
+    }
     // EARLY-OUT for the ball: bright emissive yellow, no shading, so it
     // reads as a "you-solved-it" indicator riding the figure rather than
     // a 3D object in the scene.

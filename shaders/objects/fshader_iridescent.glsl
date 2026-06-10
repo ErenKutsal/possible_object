@@ -37,6 +37,7 @@ uniform float uSkyboxRotation;       // Y-axis rotation of the env cubemap
 uniform samplerCube uEnvMap;          // baked procedural sky cubemap
 uniform float       uRoughness;       // 0.05 = mirror, 0.8 = brushed
 uniform float       uMaxEnvMip;       // last mip level of uEnvMap
+uniform int         uFlatShade;       // 1 = flat illusion colors only (no texture/lighting/edges/animation)
 
 out vec4 outColor;
 
@@ -175,6 +176,11 @@ vec3 rotateY(vec3 v, float angle)
 
 void main()
 {
+    // FLAT ILLUSION MODE — solid per-face orientation color only.
+    if (uFlatShade == 1) {
+        outColor = vec4(fragColor.rgb, fragColor.a);
+        return;
+    }
     // Flat normals via screen-space derivatives — the bars have hard
     // creases and no normal attribute, so this is the simplest correct
     // option.

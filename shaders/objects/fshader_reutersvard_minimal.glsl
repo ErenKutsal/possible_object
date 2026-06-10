@@ -9,11 +9,17 @@ uniform float uTime;
 
 uniform int uIsBall;
 uniform vec3 uBallColor;
+uniform int  uFlatShade;   // 1 = flat illusion colors only (no texture/lighting/edges/animation)
 
 out vec4 outColor;
 
 void main()
 {
+    // FLAT ILLUSION MODE — solid per-face orientation color only.
+    if (uFlatShade == 1) {
+        outColor = vec4(fragColor.rgb, fragColor.a);
+        return;
+    }
     // Emissive mode for the tracer ball
     if (uIsBall == 1) {
         outColor = vec4(uBallColor * 2.5, 1.0);

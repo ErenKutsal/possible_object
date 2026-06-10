@@ -34,6 +34,7 @@ struct ObjShape
     GLint hueShiftLoc = -1;
     GLint iridescenceAmtLoc = -1;
     GLint skyboxRotationLoc = -1;
+    GLint flatShadeLoc = -1;   // 1 = flat illusion colors only (no texture/lighting/animation)
     // Tracked CPU-side so the shader can animate after LOCKED. Reset to 0
     // whenever the solve phase leaves LOCKED.
     float postSolveTime = 0.0f;
@@ -45,7 +46,8 @@ struct ObjShape
     void setSkyboxRotation(float r) { externalSkyboxRotation = r; }
     bool isSolved() const { return solvePhase == SolvePhase::Locked; }
     bool allowLockedOrbit = false;
-    bool drawBallMesh = false; // default to false (omits the ball mesh), toggleable via B key
+    bool drawBallMesh = false; // default to false (omits the ball mesh)
+    bool flatShade = false;    // B key: show only flat per-face illusion colors (no texture/lighting/animation)
 
     // Optional override for the direct light's world position. The default
     // (eye-relative) is used when useCustomLight is false. Slot 6 enables
@@ -290,6 +292,7 @@ struct ObjShape
         hueShiftLoc = glGetUniformLocation(shaderProgram, "uHueShift");
         iridescenceAmtLoc = glGetUniformLocation(shaderProgram, "uIridescenceAmount");
         skyboxRotationLoc = glGetUniformLocation(shaderProgram, "uSkyboxRotation");
+        flatShadeLoc = glGetUniformLocation(shaderProgram, "uFlatShade");
         modelLoc = glGetUniformLocation(shaderProgram, "model");
         viewLoc = glGetUniformLocation(shaderProgram, "view");
         projLoc = glGetUniformLocation(shaderProgram, "projection");
@@ -1092,6 +1095,7 @@ struct ObjShape
         if (hueShiftLoc >= 0) glUniform1f(hueShiftLoc, hueShift);
         if (iridescenceAmtLoc >= 0) glUniform1f(iridescenceAmtLoc, postRamp);
         if (skyboxRotationLoc >= 0) glUniform1f(skyboxRotationLoc, externalSkyboxRotation);
+        if (flatShadeLoc >= 0) glUniform1i(flatShadeLoc, flatShade ? 1 : 0);
 
         // Metallic + ball-reflection uniforms (no-op when locs == -1 on other slots)
         if (metallicLoc >= 0) glUniform1f(metallicLoc, metallic ? 1.0f : 0.0f);
@@ -1244,7 +1248,10 @@ struct ObjShape
         if (action != GLFW_PRESS && action != GLFW_REPEAT) return;
         if (keyCode == GLFW_KEY_B && action == GLFW_PRESS)
         {
-            drawBallMesh = !drawBallMesh;
+            // Flat-illusion view: faces show only their solid orientation color
+            // (the classic impossible-figure look) with no texture, lighting,
+            // edges, or animation.
+            flatShade = !flatShade;
         }
         if (keyCode == GLFW_KEY_LEFT) angleY -= 3.0f;
         if (keyCode == GLFW_KEY_RIGHT) angleY += 3.0f;

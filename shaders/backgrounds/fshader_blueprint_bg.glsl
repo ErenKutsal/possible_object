@@ -14,13 +14,13 @@ uniform float uAspect;
 
 void main()
 {
-    // Deep premium blueprint blue void
-    vec3 baseCol = vec3(0.043, 0.059, 0.10);
-    
+    // Warm beige parchment void (sepia blueprint)
+    vec3 baseCol = vec3(0.80, 0.74, 0.64);
+
     // Radial gradient glow centered on the screen
     float dCenter = length(vNdc);
     float glow = exp(-dCenter * dCenter * 1.2);
-    vec3 glowCol = vec3(0.08, 0.12, 0.22);
+    vec3 glowCol = vec3(0.90, 0.85, 0.74);
     
     vec3 col = mix(baseCol, glowCol, glow);
     
@@ -53,8 +53,8 @@ void main()
         float dotted_ray = ray_line * step(0.0, sin(length(uv) * 10.0));
         
         // Palette of technical drafting lines
-        vec3 gridColor = vec3(0.12, 0.18, 0.30); // blueprint blue-grey
-        vec3 guideColor = vec3(0.08, 0.22, 0.26); // blueprint cyan-teal
+        vec3 gridColor = vec3(0.52, 0.44, 0.33); // sepia brown grid
+        vec3 guideColor = vec3(0.46, 0.38, 0.27); // deeper sepia guides
         
         // Combine layers
         vec3 blueprintLayer = col;

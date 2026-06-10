@@ -13,6 +13,7 @@ uniform float uObjHeight;
 uniform float uLockGlow;
 uniform float uPostSolveTime;
 uniform int   uIsBall;
+uniform int   uFlatShade;   // 1 = flat illusion colors only (no texture/lighting/edges/animation)
 
 out vec4 outColor;
 
@@ -113,6 +114,11 @@ vec2 voronoiBorder(vec2 x)
 
 void main()
 {
+    // FLAT ILLUSION MODE — solid per-face orientation color only.
+    if (uFlatShade == 1) {
+        outColor = vec4(fragColor.rgb, fragColor.a);
+        return;
+    }
     if (uIsBall == 1) {
         outColor = vec4(fragColor.rgb * 2.0, 1.0);
         return;

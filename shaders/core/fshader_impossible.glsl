@@ -14,6 +14,7 @@ uniform float uObjHeight;   // world-space height of the object (for normalizing
 uniform float uLockGlow;    // 0..1, brightness pulse when figure clicks into solved pose
 uniform float uPostSolveTime; // seconds since the figure LOCKED (0 while unsolved)
 uniform int   uIsBall;      // 1 = render as bright emissive ball, 0 = normal figure
+uniform int   uFlatShade;   // 1 = flat illusion colors only (no texture/lighting/edges/animation)
 
 out vec4 outColor;
 
@@ -149,6 +150,13 @@ vec2 voronoiBorder(vec2 x)
 
 void main()
 {
+    // FLAT ILLUSION MODE — show only the solid per-face orientation color
+    // (the classic impossible-figure look), bypassing all texture, lighting,
+    // edges, gradient and animation.
+    if (uFlatShade == 1) {
+        outColor = vec4(fragColor.rgb, fragColor.a);
+        return;
+    }
     // EARLY-OUT for the ball: bright emissive yellow, no shading, so it
     // reads as a "you-solved-it" indicator riding the figure rather than
     // a 3D object in the scene.

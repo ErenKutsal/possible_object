@@ -148,7 +148,7 @@ static vec3 get_pulse_3d_position(float d)
     }
 }
 
-static void draw_tracer_sphere(const vec3& pos, float intensity, const mat4& rotPart, const mat4& view, const mat4& proj)
+static void draw_tracer_sphere(const vec3& pos, float intensity, const mat4& rotPart, const mat4& view, const mat4& proj, const vec3& color = vec3(0.0f, 0.85f, 1.0f))
 {
     if (intensity < 0.01f) return;
 
@@ -162,7 +162,7 @@ static void draw_tracer_sphere(const vec3& pos, float intensity, const mat4& rot
     glUniformMatrix4fv(g_shape.projLoc, 1, GL_FALSE, &proj.d[0].x);
 
     if (isBallLoc >= 0) glUniform1i(isBallLoc, 1);
-    if (ballColorLoc >= 0) glUniform3f(ballColorLoc, 0.0f, 0.85f, 1.0f); // bright neon cyan
+    if (ballColorLoc >= 0) glUniform3f(ballColorLoc, color.x, color.y, color.z);
 
     glBindVertexArray(g_shape.ballVao);
     glDrawArrays(GL_TRIANGLES, 0, g_shape.ballVertexCount);
@@ -356,8 +356,8 @@ void reutersvard_display()
         glDrawArrays(GL_LINE_STRIP, 2, 5);
 
         // ── 5. Render Glowing Tracer Beads ─────────────────────────────────────
-        draw_tracer_sphere(get_pulse_3d_position(d1), int1, rotPart, view, proj);
-        draw_tracer_sphere(get_pulse_3d_position(d2), int2, rotPart, view, proj);
+        draw_tracer_sphere(get_pulse_3d_position(d1), int1, rotPart, view, proj, vec3(1.0f, 0.12f, 0.12f));        // first bead — red
+        draw_tracer_sphere(get_pulse_3d_position(d2), int2, rotPart, view, proj, vec3(1.0f, 0.12f, 0.12f));        // second bead — red
 
         glDisable(GL_BLEND);
         glBindVertexArray(0);
