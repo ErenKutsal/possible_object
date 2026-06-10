@@ -78,10 +78,11 @@ void penrose_init()
             {vec3(-5.818f, -5.818f, -5.818f), vec3(0.0f, 0.0f, 0.0f)},  // Back bar center (P_mid_back)
         },
         /*thickness=*/0.0f, /*ballRadius=*/0.32f);
-    g_shape.useMirrorBall(5);   // 5 = iridescent/rainbow style
+    g_shape.useMirrorBall(2);   // 2 = chrome steel (metallic mirror) ball
     g_shape.setMetallic(true);  // chrome PBR with ball reflection
     g_shape.ballStartS = 0.12f; // start closer to the top corner on the front bar
     g_shape.allowLockedOrbit = true;
+    g_shape.drawBallMesh = true; // show the chrome ball once solved (B key now drives flat-shade)
 
     bg_init();
 }

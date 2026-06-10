@@ -97,52 +97,17 @@ void main()
     // Re-apply edge lines so bars stay readable.
     litColor = mix(litColor, edgeColor, edge);
 
-    // ── Ball proximity and reflection ─────────────────────────────────────
-    float bDist = 999.0;
-    vec3 rainbow = vec3(0.0);
+    // ── Ball proximity and metallic reflection ────────────────────────────
+    // The chrome ball casts a bright specular glint onto each bar as it passes
+    // close — a clean metallic white highlight (no iridescent grid overlay).
     if (uBallRadius > 0.0) {
-        bDist = length(uBallWorldPos - fragPos);
-        
-        // Iridescent hue — same HSV→RGB as fshader_mirror.glsl style-5.
-        float hue = fract(uTime * 0.30 + bDist * 0.10);
-        vec4 Kc = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-        vec3 pRain = abs(fract(vec3(hue) + Kc.xyz) * 6.0 - Kc.www);
-        rainbow = clamp(pRain - Kc.xxx, 0.0, 1.0);
-        
-        // Add the ball specular reflection point
-        vec3 Lball = normalize(uBallWorldPos - fragPos + vec3(1e-5));
-        vec3 Hball = normalize(Lball + V);
-        float bSpec = pow(max(dot(N, Hball), 0.0), 200.0);
+        float bDist  = length(uBallWorldPos - fragPos);
+        vec3  Lball  = normalize(uBallWorldPos - fragPos + vec3(1e-5));
+        vec3  Hball  = normalize(Lball + V);
+        float bSpec  = pow(max(dot(N, Hball), 0.0), 200.0);
         float bAtten = 1.0 / (1.0 + bDist * bDist * 0.30);
-        litColor += rainbow * bSpec * bAtten * 3.5;
+        litColor += vec3(0.95, 0.97, 1.00) * bSpec * bAtten * 3.5;
     }
-    
-    // ── Cyber Grid Overlay & Ball Excitation Trail ─────────────────────────
-    vec3 gridCoord = vModelPos * 4.0;
-    float gx = smoothstep(0.04, 0.0, abs(fract(gridCoord.x) - 0.5));
-    float gy = smoothstep(0.04, 0.0, abs(fract(gridCoord.y) - 0.5));
-    float gz = smoothstep(0.04, 0.0, abs(fract(gridCoord.z) - 0.5));
-    float objGrid = max(max(gx, gy), gz);
-
-    float gxGlow = smoothstep(0.25, 0.0, abs(fract(gridCoord.x) - 0.5));
-    float gyGlow = smoothstep(0.25, 0.0, abs(fract(gridCoord.y) - 0.5));
-    float gzGlow = smoothstep(0.25, 0.0, abs(fract(gridCoord.z) - 0.5));
-    float objGridGlow = max(max(gxGlow, gyGlow), gzGlow) * 0.45;
-
-    // Proximity glow under/behind the ball
-    float ballFactor = exp(-bDist * bDist * 0.85);
-    
-    // Base cyber grid color (cycles over time/space)
-    vec3 cyberColor = mix(vec3(0.0, 1.0, 1.0), vec3(1.0, 0.0, 0.8), 0.5 + 0.5 * sin(uTime * 0.6 + vModelPos.y * 0.3));
-    
-    // If ball is near, blend grid color with the ball's iridescent color and make it glow extra bright!
-    vec3 gridCol = mix(cyberColor, rainbow, ballFactor * 0.85);
-    float gridIntensity = (objGrid + objGridGlow) * (1.0 + ballFactor * 4.5);
-
-    // Holographic grid transition over 4.0 seconds after solve
-    float solveBlend = clamp((uPostSolveTime - 0.4) / 4.0, 0.0, 0.90);
-    vec3 holographicGrid = gridCol * gridIntensity;
-    litColor = mix(litColor, holographicGrid, solveBlend * (0.3 + 0.7 * objGrid));
 
     // Lock-glow pulse still applies.
     vec3 strikeM = mix(uLightColor, vec3(1.0), clamp(uLockGlow * 1.5, 0.0, 1.0)) * uLockGlow;
